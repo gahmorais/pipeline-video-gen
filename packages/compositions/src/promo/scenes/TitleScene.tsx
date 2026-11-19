@@ -1,9 +1,9 @@
 import type React from "react";
 import { AbsoluteFill, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Brand, TitleScene as TitleSceneProps } from "@videogen/video-schema";
-import { FONT_STACK, readableTextColor } from "../theme";
-import { AssetImage } from "./AssetImage";
-import { SceneFrame } from "./SceneFrame";
+import { FONT_STACK, readableTextColor } from "../../shared/theme";
+import { AssetImage } from "../../shared/AssetImage";
+import { SceneFrame } from "../../shared/SceneFrame";
 
 export const TitleScene: React.FC<{ scene: TitleSceneProps; brand: Brand }> = ({ scene, brand }) => {
   const frame = useCurrentFrame();

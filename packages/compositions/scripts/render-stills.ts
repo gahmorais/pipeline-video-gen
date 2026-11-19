@@ -1,7 +1,7 @@
 /**
- * Validação visual: renderiza um still no meio de cada cena da fixture básica.
+ * Validação visual: renderiza um still no meio de cada cena da fixture de um template.
  *
- * Uso: pnpm render:stills [diretório-de-saída]
+ * Uso: pnpm render:stills [template] [diretório-de-saída]   (template padrão: promo)
  * Variáveis: BROWSER_EXECUTABLE (opcional) — caminho de um Chrome local quando
  * o download do Chrome Headless Shell não for possível.
  */
@@ -11,25 +11,39 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bundle } from "@remotion/bundler";
 import { renderStill, selectComposition } from "@remotion/renderer";
-import { PromoSchema, sceneFrames } from "@videogen/video-schema";
+import { isTemplateId, sceneFrames, templates, validateStoryboard, type TemplateId } from "@videogen/video-schema";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
 async function main(): Promise<void> {
-  const outDir = resolve(process.argv[2] ?? join(here, "..", "out", "stills"));
+  const templateArg = process.argv[2] ?? "promo";
+  if (!isTemplateId(templateArg)) {
+    throw new Error(`template desconhecido: ${templateArg}`);
+  }
+  const templateId: TemplateId = templateArg;
+  const outDir = resolve(process.argv[3] ?? join(here, "..", "out", "stills", templateId));
   mkdirSync(outDir, { recursive: true });
 
-  const fixture = require.resolve("@videogen/video-schema/fixtures/valid/promo-basic.json");
-  const inputProps = PromoSchema.parse(JSON.parse(readFileSync(fixture, "utf8")));
+  const fixtureName =
+    templateId === "promo" ? "fixtures/valid/promo-basic.json" : `fixtures/${templateId}/valid/basic.json`;
+  const fixture = require.resolve(`@videogen/video-schema/${fixtureName}`);
+  const parsed = validateStoryboard(templateId, JSON.parse(readFileSync(fixture, "utf8")));
+  if (!parsed.success) {
+    throw new Error(`fixture inválida: ${JSON.stringify(parsed.issues)}`);
+  }
+  const inputProps = parsed.data as Record<string, unknown> & { scenes: Array<{ type: string; durationSec: number }> };
 
   const browserExecutable = process.env.BROWSER_EXECUTABLE ?? null;
   const chromeMode = browserExecutable ? "chrome-for-testing" : "headless-shell";
 
-  const serveUrl = await bundle({ entryPoint: join(here, "..", "src", "index.ts") });
+  const serveUrl = await bundle({
+    entryPoint: join(here, "..", "src", "index.ts"),
+    publicDir: join(here, "..", "public"),
+  });
   const composition = await selectComposition({
     serveUrl,
-    id: "Promo",
+    id: templates[templateId].compositionId,
     inputProps,
     browserExecutable,
     chromeMode,
@@ -56,7 +70,7 @@ async function main(): Promise<void> {
     console.log(`ok frame=${frame} ${output} (${size} bytes)`);
     start += sceneLength;
   }
-  console.log(`durationInFrames=${composition.durationInFrames}`);
+  console.log(`${composition.id}: ${composition.width}x${composition.height} durationInFrames=${composition.durationInFrames}`);
 }
 
 main().catch((err: unknown) => {

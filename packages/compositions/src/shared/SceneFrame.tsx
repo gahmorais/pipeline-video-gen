@@ -1,6 +1,6 @@
 import type React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
-import { fadeFrames } from "../theme";
+import { fadeFrames } from "./theme";
 
 /**
  * Envelope comum das cenas: fundo + fade-in/fade-out derivado do frame local.

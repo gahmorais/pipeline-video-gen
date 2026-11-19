@@ -1,9 +1,9 @@
 import type React from "react";
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Brand, ProductScene as ProductSceneProps } from "@videogen/video-schema";
-import { FONT_STACK } from "../theme";
-import { AssetImage } from "./AssetImage";
-import { SceneFrame } from "./SceneFrame";
+import { FONT_STACK } from "../../shared/theme";
+import { AssetImage } from "../../shared/AssetImage";
+import { SceneFrame } from "../../shared/SceneFrame";
 
 export const ProductScene: React.FC<{ scene: ProductSceneProps; brand: Brand }> = ({
   scene,

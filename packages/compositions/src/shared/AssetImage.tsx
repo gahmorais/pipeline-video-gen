@@ -1,6 +1,6 @@
 import type React from "react";
 import { Img, staticFile } from "remotion";
-import { resolveAssetRef } from "../../shared/assets";
+import { resolveAssetRef } from "./assets";
 
 /**
  * Imagem a partir de uma referência do storyboard. Referências inválidas

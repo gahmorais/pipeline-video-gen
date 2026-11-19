@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 import { PromoSchema } from "@videogen/video-schema";
 import { resolveAssetRef } from "../src/shared/assets";
-import { fadeFrames, readableTextColor } from "../src/promo/theme";
+import { fadeFrames, readableTextColor } from "../src/shared/theme";
 import { calculatePromoMetadata } from "../src/promo/metadata";
 import { VIDEO_CONFIG } from "../src/shared/video-config";
 

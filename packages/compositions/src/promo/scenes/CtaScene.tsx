@@ -1,8 +1,8 @@
 import type React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Brand, CtaScene as CtaSceneProps } from "@videogen/video-schema";
-import { FONT_STACK, readableTextColor } from "../theme";
-import { SceneFrame } from "./SceneFrame";
+import { FONT_STACK, readableTextColor } from "../../shared/theme";
+import { SceneFrame } from "../../shared/SceneFrame";
 
 export const CtaScene: React.FC<{ scene: CtaSceneProps; brand: Brand }> = ({ scene, brand }) => {
   const frame = useCurrentFrame();
