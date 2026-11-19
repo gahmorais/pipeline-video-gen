@@ -3,6 +3,7 @@ package schema_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,17 +28,30 @@ func newCatalog(t *testing.T) *schema.Catalog {
 	return c
 }
 
-func TestEmbeddedSchemaIsInSyncWithCanonical(t *testing.T) {
-	canonical, err := os.ReadFile(filepath.Join(fixturesDir, "..", "schemas", "promo.v1.schema.json"))
-	if err != nil {
-		t.Fatal(err)
+var appPromoV1 = domain.TemplateRef{ID: "app-promo", Version: 1}
+
+func TestEmbeddedSchemasAreInSyncWithCanonical(t *testing.T) {
+	canonicalFiles, _ := filepath.Glob(filepath.Join(fixturesDir, "..", "schemas", "*.schema.json"))
+	if len(canonicalFiles) < 2 {
+		t.Fatalf("esperado ao menos 2 schemas canônicos, obtido %d", len(canonicalFiles))
 	}
-	embedded, ok := newCatalog(t).JSONSchema(promoV1)
-	if !ok {
-		t.Fatal("schema promo@1 ausente")
-	}
-	if !bytes.Equal(canonical, embedded) {
-		t.Fatal("cópia embutida diverge de packages/video-schema/schemas — rode `pnpm --filter @videogen/video-schema generate`")
+	c := newCatalog(t)
+	for _, file := range canonicalFiles {
+		t.Run(filepath.Base(file), func(t *testing.T) {
+			canonical, _ := os.ReadFile(file)
+			var id string
+			var version int
+			if _, err := fmt.Sscanf(strings.ReplaceAll(filepath.Base(file), ".v", " "), "%s %d", &id, &version); err != nil {
+				t.Fatal(err)
+			}
+			embedded, ok := c.JSONSchema(domain.TemplateRef{ID: id, Version: version})
+			if !ok {
+				t.Fatalf("schema %s@%d não está embutido", id, version)
+			}
+			if !bytes.Equal(canonical, embedded) {
+				t.Fatal("cópia embutida diverge de packages/video-schema/schemas — rode `pnpm --filter @videogen/video-schema generate`")
+			}
+		})
 	}
 }
 
@@ -45,6 +59,9 @@ func TestLatest(t *testing.T) {
 	c := newCatalog(t)
 	if ref, ok := c.Latest("promo"); !ok || ref != promoV1 {
 		t.Fatalf("Latest(promo) = %v, %v", ref, ok)
+	}
+	if ref, ok := c.Latest("app-promo"); !ok || ref != appPromoV1 {
+		t.Fatalf("Latest(app-promo) = %v, %v", ref, ok)
 	}
 	if _, ok := c.Latest("nope"); ok {
 		t.Fatal("template desconhecido não deve existir")
@@ -82,20 +99,31 @@ func TestCatalogRejectsBadSchemas(t *testing.T) {
 	}
 }
 
+// fixtureSets: fixtures do promo ficam na raiz; dos demais templates, em subpastas com o id.
+var fixtureSets = []struct {
+	ref domain.TemplateRef
+	dir string
+}{
+	{promoV1, fixturesDir},
+	{appPromoV1, filepath.Join(fixturesDir, "app-promo")},
+}
+
 func TestValidFixtures(t *testing.T) {
 	c := newCatalog(t)
-	files, _ := filepath.Glob(filepath.Join(fixturesDir, "valid", "*.json"))
-	if len(files) == 0 {
-		t.Fatal("nenhuma fixture válida encontrada")
-	}
-	for _, f := range files {
-		t.Run(filepath.Base(f), func(t *testing.T) {
-			raw, _ := os.ReadFile(f)
-			issues, err := c.Validate(promoV1, raw)
-			if err != nil || len(issues) != 0 {
-				t.Fatalf("esperado válido, obtido issues=%v err=%v", issues, err)
-			}
-		})
+	for _, set := range fixtureSets {
+		files, _ := filepath.Glob(filepath.Join(set.dir, "valid", "*.json"))
+		if len(files) == 0 {
+			t.Fatalf("%s: nenhuma fixture válida encontrada", set.ref)
+		}
+		for _, f := range files {
+			t.Run(set.ref.String()+"/"+filepath.Base(f), func(t *testing.T) {
+				raw, _ := os.ReadFile(f)
+				issues, err := c.Validate(set.ref, raw)
+				if err != nil || len(issues) != 0 {
+					t.Fatalf("esperado válido, obtido issues=%v err=%v", issues, err)
+				}
+			})
+		}
 	}
 }
 
@@ -103,21 +131,32 @@ func TestValidFixtures(t *testing.T) {
 // e o caminho apontado pelo Zod aparece (ou é ancestral/descendente) entre os do Go.
 func TestInvalidFixtures(t *testing.T) {
 	c := newCatalog(t)
-	raw, err := os.ReadFile(filepath.Join(fixturesDir, "invalid", "cases.json"))
-	if err != nil {
-		t.Fatal(err)
+	for _, set := range fixtureSets {
+		raw, err := os.ReadFile(filepath.Join(set.dir, "invalid", "cases.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var cases []struct {
+			Name      string          `json:"name"`
+			ErrorPath string          `json:"errorPath"`
+			Input     json.RawMessage `json:"input"`
+		}
+		if err := json.Unmarshal(raw, &cases); err != nil {
+			t.Fatal(err)
+		}
+		runInvalidCases(t, c, set.ref, cases)
 	}
-	var cases []struct {
-		Name      string          `json:"name"`
-		ErrorPath string          `json:"errorPath"`
-		Input     json.RawMessage `json:"input"`
-	}
-	if err := json.Unmarshal(raw, &cases); err != nil {
-		t.Fatal(err)
-	}
+}
+
+func runInvalidCases(t *testing.T, c *schema.Catalog, ref domain.TemplateRef, cases []struct {
+	Name      string          `json:"name"`
+	ErrorPath string          `json:"errorPath"`
+	Input     json.RawMessage `json:"input"`
+}) {
+	t.Helper()
 	for _, tc := range cases {
-		t.Run(tc.Name, func(t *testing.T) {
-			issues, err := c.Validate(promoV1, tc.Input)
+		t.Run(ref.String()+"/"+tc.Name, func(t *testing.T) {
+			issues, err := c.Validate(ref, tc.Input)
 			if err != nil {
 				t.Fatal(err)
 			}

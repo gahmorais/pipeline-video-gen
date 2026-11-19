@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "brand": { "appName": "Demo App", "primary": "#9BBC0F", "logoUrl": "assets/logo.png" },
+  "soundtrack": { "src": "assets/app-promo/sample-track.mp3", "volume": 0.5 },
+  "scenes": [
+    { "type": "title", "text": "Um app que você precisa ver", "durationSec": 2 },
+    { "type": "clip", "videoUrl": "assets/app-promo/sample-clip.mp4", "startSec": 0, "caption": "Gameplay real", "durationSec": 3 },
+    { "type": "feature", "name": "Recordes", "tagline": "Desafie seus amigos", "imageUrl": "assets/product-placeholder.png", "durationSec": 2 },
+    { "type": "cta", "text": "Baixe grátis", "stores": ["google-play", "app-store"], "durationSec": 2 }
+  ]
+}

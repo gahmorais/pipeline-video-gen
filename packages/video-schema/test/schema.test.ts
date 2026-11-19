@@ -8,6 +8,8 @@ import {
   totalDurationSec,
   sceneFrames,
   secondsToFrames,
+  templateIds,
+  templates,
   validateStoryboard,
 } from "../src/index";
 import { renderSchema, schemaFileName } from "../scripts/generate-json-schema";
@@ -75,10 +77,40 @@ describe("registro de templates", () => {
   });
 });
 
+describe("app-promo", () => {
+  const dir = join(fixtures, "app-promo");
+  const valid = readdirSync(join(dir, "valid")).filter((f) => f.endsWith(".json"));
+  const cases = readJson(join(dir, "invalid", "cases.json")) as InvalidCase[];
+
+  it.each(valid)("aceita %s", (file) => {
+    expect(validateStoryboard("app-promo", readJson(join(dir, "valid", file)))).toMatchObject({ success: true });
+  });
+
+  it.each(cases.map((c) => [c.name, c] as const))("rejeita: %s", (_name, c) => {
+    const result = validateStoryboard("app-promo", c.input);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.issues.map((i) => i.path)).toContain(c.errorPath);
+    }
+  });
+
+  it("templates não aceitam storyboards um do outro", () => {
+    const promo = readJson(join(fixtures, "valid", "promo-basic.json"));
+    const app = readJson(join(dir, "valid", "basic.json"));
+    expect(validateStoryboard("app-promo", promo).success).toBe(false);
+    expect(validateStoryboard("promo", app).success).toBe(false);
+  });
+
+  it("registro expõe os dois templates", () => {
+    expect(templateIds.sort()).toEqual(["app-promo", "promo"]);
+    expect(templates["app-promo"].compositionId).toBe("AppPromo");
+  });
+});
+
 describe("JSON Schema gerado", () => {
-  it("está atualizado em relação ao Zod (rode `pnpm generate` se falhar)", () => {
-    const committed = readFileSync(join(here, "..", "schemas", schemaFileName("promo")), "utf8");
-    expect(committed).toBe(renderSchema("promo"));
+  it.each(templateIds)("%s está atualizado em relação ao Zod (rode `pnpm generate` se falhar)", (id) => {
+    const committed = readFileSync(join(here, "..", "schemas", schemaFileName(id)), "utf8");
+    expect(committed).toBe(renderSchema(id));
   });
 
   it("é determinístico", () => {

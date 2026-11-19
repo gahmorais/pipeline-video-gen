@@ -1,0 +1,214 @@
+{
+  "$id": "https://videogen.local/schemas/app-promo.v1.schema.json",
+  "title": "app-promo storyboard v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "brand": {
+      "type": "object",
+      "properties": {
+        "appName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 30
+        },
+        "primary": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Cor hexadecimal no formato #RRGGBB"
+        },
+        "logoUrl": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "description": "Referência a um asset já validado pela API (caminho relativo ou URL interna)"
+        }
+      },
+      "required": [
+        "appName",
+        "primary",
+        "logoUrl"
+      ],
+      "additionalProperties": false
+    },
+    "soundtrack": {
+      "type": "object",
+      "properties": {
+        "src": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "description": "Trilha sonora (mp3/m4a), já enviada à API"
+        },
+        "volume": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "src",
+        "volume"
+      ],
+      "additionalProperties": false
+    },
+    "scenes": {
+      "minItems": 1,
+      "maxItems": 15,
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "title"
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50
+              },
+              "durationSec": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 6
+              }
+            },
+            "required": [
+              "type",
+              "text",
+              "durationSec"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "clip"
+              },
+              "videoUrl": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048,
+                "description": "Trecho de gameplay/gravação de tela (mp4), já enviado à API"
+              },
+              "startSec": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 600,
+                "description": "Ponto de início dentro do vídeo de origem"
+              },
+              "caption": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              },
+              "durationSec": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 15
+              }
+            },
+            "required": [
+              "type",
+              "videoUrl",
+              "startSec",
+              "durationSec"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "feature"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 30
+              },
+              "tagline": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              },
+              "imageUrl": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048,
+                "description": "Screenshot da tela em destaque"
+              },
+              "durationSec": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 8
+              }
+            },
+            "required": [
+              "type",
+              "name",
+              "tagline",
+              "imageUrl",
+              "durationSec"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "cta"
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 30
+              },
+              "stores": {
+                "minItems": 1,
+                "maxItems": 2,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "google-play",
+                    "app-store"
+                  ]
+                }
+              },
+              "durationSec": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 8
+              }
+            },
+            "required": [
+              "type",
+              "text",
+              "stores",
+              "durationSec"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "brand",
+    "scenes"
+  ],
+  "additionalProperties": false
+}

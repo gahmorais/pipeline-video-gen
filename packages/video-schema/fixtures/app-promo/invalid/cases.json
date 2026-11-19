@@ -1,0 +1,351 @@
+[
+  {
+    "name": "sem cenas",
+    "errorPath": "scenes",
+    "input": {
+      "schemaVersion": 1,
+      "brand": {
+        "appName": "X",
+        "primary": "#112233",
+        "logoUrl": "a.png"
+      },
+      "scenes": []
+    }
+  },
+  {
+    "name": "mais de 15 cenas",
+    "errorPath": "scenes",
+    "input": {
+      "schemaVersion": 1,
+      "brand": {
+        "appName": "X",
+        "primary": "#112233",
+        "logoUrl": "a.png"
+      },
+      "scenes": [
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        },
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        },
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        },
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        },
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        },
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        },
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        },
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        },
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        },
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        },
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        },
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        },
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        },
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        },
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        },
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        }
+      ]
+    }
+  },
+  {
+    "name": "clip sem vídeo",
+    "errorPath": "scenes.0.videoUrl",
+    "input": {
+      "schemaVersion": 1,
+      "brand": {
+        "appName": "X",
+        "primary": "#112233",
+        "logoUrl": "a.png"
+      },
+      "scenes": [
+        {
+          "type": "clip",
+          "startSec": 0,
+          "durationSec": 2
+        }
+      ]
+    }
+  },
+  {
+    "name": "clip longo demais",
+    "errorPath": "scenes.0.durationSec",
+    "input": {
+      "schemaVersion": 1,
+      "brand": {
+        "appName": "X",
+        "primary": "#112233",
+        "logoUrl": "a.png"
+      },
+      "scenes": [
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 16
+        }
+      ]
+    }
+  },
+  {
+    "name": "startSec negativo",
+    "errorPath": "scenes.0.startSec",
+    "input": {
+      "schemaVersion": 1,
+      "brand": {
+        "appName": "X",
+        "primary": "#112233",
+        "logoUrl": "a.png"
+      },
+      "scenes": [
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": -1,
+          "durationSec": 2
+        }
+      ]
+    }
+  },
+  {
+    "name": "legenda longa demais",
+    "errorPath": "scenes.0.caption",
+    "input": {
+      "schemaVersion": 1,
+      "brand": {
+        "appName": "X",
+        "primary": "#112233",
+        "logoUrl": "a.png"
+      },
+      "scenes": [
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2,
+          "caption": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      ]
+    }
+  },
+  {
+    "name": "título longo demais",
+    "errorPath": "scenes.0.text",
+    "input": {
+      "schemaVersion": 1,
+      "brand": {
+        "appName": "X",
+        "primary": "#112233",
+        "logoUrl": "a.png"
+      },
+      "scenes": [
+        {
+          "type": "title",
+          "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "durationSec": 2
+        }
+      ]
+    }
+  },
+  {
+    "name": "cta sem lojas",
+    "errorPath": "scenes.0.stores",
+    "input": {
+      "schemaVersion": 1,
+      "brand": {
+        "appName": "X",
+        "primary": "#112233",
+        "logoUrl": "a.png"
+      },
+      "scenes": [
+        {
+          "type": "cta",
+          "text": "Baixe",
+          "stores": [],
+          "durationSec": 2
+        }
+      ]
+    }
+  },
+  {
+    "name": "loja desconhecida",
+    "errorPath": "scenes.0.stores.0",
+    "input": {
+      "schemaVersion": 1,
+      "brand": {
+        "appName": "X",
+        "primary": "#112233",
+        "logoUrl": "a.png"
+      },
+      "scenes": [
+        {
+          "type": "cta",
+          "text": "Baixe",
+          "stores": [
+            "steam"
+          ],
+          "durationSec": 2
+        }
+      ]
+    }
+  },
+  {
+    "name": "tipo de cena de outro template",
+    "errorPath": "scenes.0.type",
+    "input": {
+      "schemaVersion": 1,
+      "brand": {
+        "appName": "X",
+        "primary": "#112233",
+        "logoUrl": "a.png"
+      },
+      "scenes": [
+        {
+          "type": "product",
+          "name": "x",
+          "price": "1",
+          "imageUrl": "a.png",
+          "durationSec": 2
+        }
+      ]
+    }
+  },
+  {
+    "name": "volume acima de 1",
+    "errorPath": "soundtrack.volume",
+    "input": {
+      "schemaVersion": 1,
+      "brand": {
+        "appName": "X",
+        "primary": "#112233",
+        "logoUrl": "a.png"
+      },
+      "soundtrack": {
+        "src": "t.mp3",
+        "volume": 1.5
+      },
+      "scenes": [
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        }
+      ]
+    }
+  },
+  {
+    "name": "sem nome do app",
+    "errorPath": "brand.appName",
+    "input": {
+      "schemaVersion": 1,
+      "brand": {
+        "primary": "#112233",
+        "logoUrl": "a.png"
+      },
+      "scenes": [
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        }
+      ]
+    }
+  },
+  {
+    "name": "campo extra",
+    "errorPath": "",
+    "input": {
+      "schemaVersion": 1,
+      "brand": {
+        "appName": "X",
+        "primary": "#112233",
+        "logoUrl": "a.png"
+      },
+      "scenes": [
+        {
+          "type": "clip",
+          "videoUrl": "c.mp4",
+          "startSec": 0,
+          "durationSec": 2
+        }
+      ],
+      "fps": 60
+    }
+  }
+]

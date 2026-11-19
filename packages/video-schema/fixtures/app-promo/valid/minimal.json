@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "brand": { "appName": "X", "primary": "#000000", "logoUrl": "assets/logo.png" },
+  "scenes": [{ "type": "clip", "videoUrl": "assets/app-promo/sample-clip.mp4", "startSec": 0.5, "durationSec": 1 }]
+}

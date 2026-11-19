@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { APP_PROMO_SCHEMA_VERSION, AppPromoSchema } from "./app-promo";
 import { PROMO_SCHEMA_VERSION, PromoSchema } from "./promo";
 
 /**
@@ -12,9 +13,20 @@ export const templates = {
     compositionId: "Promo",
     schema: PromoSchema,
   },
+  "app-promo": {
+    id: "app-promo",
+    version: APP_PROMO_SCHEMA_VERSION,
+    compositionId: "AppPromo",
+    schema: AppPromoSchema,
+  },
 } as const;
 
 export type TemplateId = keyof typeof templates;
+
+/** Tipo do storyboard de um template. */
+export type StoryboardOf<T extends TemplateId> = z.infer<(typeof templates)[T]["schema"]>;
+
+export const templateIds = Object.keys(templates) as TemplateId[];
 
 export function isTemplateId(value: string): value is TemplateId {
   return Object.hasOwn(templates, value);
@@ -29,13 +41,14 @@ export interface ValidationIssue {
   message: string;
 }
 
-export function validateStoryboard(
-  templateId: TemplateId,
+export function validateStoryboard<T extends TemplateId>(
+  templateId: T,
   input: unknown,
-): ValidationResult<z.infer<(typeof templates)[TemplateId]["schema"]>> {
-  const result = templates[templateId].schema.safeParse(input);
+): ValidationResult<StoryboardOf<T>> {
+  const schema: z.ZodType = templates[templateId].schema;
+  const result = schema.safeParse(input);
   if (result.success) {
-    return { success: true, data: result.data };
+    return { success: true, data: result.data as StoryboardOf<T> };
   }
   return {
     success: false,

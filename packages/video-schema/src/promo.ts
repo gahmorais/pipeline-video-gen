@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AssetRefSchema, HexColorSchema } from "./common";
 
 /**
  * Template "promo" — versão 1.
@@ -23,16 +24,6 @@ export const SCENE_LIMITS = {
   maxUrlChars: 2048,
 } as const;
 
-const HexColorSchema = z
-  .string()
-  .regex(/^#[0-9a-fA-F]{6}$/, "Cor deve estar no formato #RRGGBB")
-  .describe("Cor hexadecimal no formato #RRGGBB");
-
-const AssetRefSchema = z
-  .string()
-  .min(1)
-  .max(SCENE_LIMITS.maxUrlChars)
-  .describe("Referência a um asset já validado pela API (caminho relativo ou URL interna)");
 
 export const TitleSceneSchema = z
   .object({
