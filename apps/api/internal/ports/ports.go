@@ -37,6 +37,27 @@ type TaskQueue interface {
 	Enqueue(ctx context.Context, task Task) error
 }
 
+// ClaimedTask é uma tarefa reservada por um worker.
+type ClaimedTask struct {
+	ID       int64
+	Task     Task
+	Attempts int
+}
+
+// TaskConsumer é o lado consumidor da fila (workers).
+// Claim devolve (nil, nil) quando não há tarefa disponível.
+type TaskConsumer interface {
+	Claim(ctx context.Context, kind TaskKind, workerID string) (*ClaimedTask, error)
+	Complete(ctx context.Context, taskID int64) error
+	// Fail devolve a tarefa à fila após retryDelay, ou a marca como morta
+	// quando esgota as tentativas (dead=true).
+	Fail(ctx context.Context, taskID int64, cause error, retryDelay time.Duration) (dead bool, err error)
+	// Heartbeat renova a reserva de tarefas longas (ex.: render).
+	Heartbeat(ctx context.Context, taskID int64) error
+	// ReclaimStale devolve à fila tarefas cujo worker parou de dar sinal.
+	ReclaimStale(ctx context.Context, olderThan time.Duration) (int, error)
+}
+
 // Repositories agrupa os repositórios que participam de uma mesma transação.
 type Repositories struct {
 	Jobs  VideoJobRepository

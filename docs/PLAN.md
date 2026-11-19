@@ -14,7 +14,7 @@ Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
 | 4 | `apps/api` — domínio | Agregado `VideoJob`, `JobStatus`, máquina de estados, erros de domínio, eventos | `go test ./internal/domain/...` table-driven com todas as transições válidas/inválidas | ✅ |
 | 5 | `apps/api` — portas e use cases | `ports/` + `application/` (CreateVideo, GenerateStoryboard, UpdateStoryboard, RequestRender, ReportRenderProgress, CompleteRender, FailJob, RetryJob) | `go test` com fakes das portas | ✅ |
 | 6 | Validação de schema em Go | Adapter que valida storyboard contra `storyboard.schema.json` (embutido) | `go test` com as mesmas fixtures do pacote TS | ✅ |
-| 7 | Postgres: repositório + fila | Migrations, `VideoJobRepository`, `JobQueue` (SKIP LOCKED, reclaim de jobs travados, LISTEN/NOTIFY) | Testes de integração contra Postgres real | ⏳ |
+| 7 | Postgres: repositório + fila | Migrations, `VideoJobRepository`, `JobQueue` (SKIP LOCKED, reclaim de jobs travados, LISTEN/NOTIFY) | Testes de integração contra Postgres real | ✅ |
 | 8 | HTTP + SSE | Handlers REST, SSE de eventos por job, endpoints internos para workers, servir MP4 (`http.ServeContent`) | `httptest` + teste e2e da API com Postgres | ⏳ |
 | 9 | LLM adapters | `GeminiStoryboardGenerator`, `AnthropicStoryboardGenerator`, `FallbackGenerator`, `MeteredGenerator`; storyboard worker | `go test` com servidores HTTP fake simulando os provedores | ⏳ |
 | 10 | Render worker conectado | Adapter de fila Postgres + reporter HTTP para a API; loop de consumo | Teste e2e: job criado via API → render → `COMPLETED` | ⏳ |
@@ -49,3 +49,6 @@ Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
 - **`santhosh-tekuri/jsonschema/v5`** (em vez da v6): sem dependências transitivas (a v6 puxa `golang.org/x/text`). Suporta draft 2020-12. Schemas embutidos via `go:embed`, compilados no startup (fail fast) e sem resolução de `$ref` remoto.
 - **Paridade TS ↔ Go**: os testes Go usam as mesmas fixtures válidas/inválidas do pacote `video-schema`, e um teste falha se a cópia embutida divergir do schema canônico.
 - **Erros de união filtrados pelo discriminador `type`**: para uma cena `title` inválida, só os erros do ramo `title` são reportados (mensagens precisas para o usuário e para o LLM).
+- **`lib/pq` + `database/sql`** em vez de `pgx`, e testes de integração com `DATABASE_URL` em vez de testcontainers: ambos sem dependências de `golang.org/x/*` (indisponível no ambiente de desenvolvimento remoto). `lib/pq` suporta `LISTEN/NOTIFY` via `pq.Listener`.
+- **Contrato da fila (`task_queue`)** compartilhado por API (produtor), storyboard worker (Go) e render worker (Node): `kind`, `job_id`, `render_id`, `status` (`pending`/`running`/`done`/`dead`), `attempts`/`max_attempts`, `run_after` (backoff), `locked_at`/`locked_by` (reclaim). Índice único parcial impede tarefas ativas duplicadas (enqueue idempotente).
+- **NOTIFY dentro da transação**: entregue só no commit — workers nunca acordam para trabalho desfeito. Notificação é só uma dica; workers também fazem polling.

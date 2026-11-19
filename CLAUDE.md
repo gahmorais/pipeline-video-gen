@@ -56,7 +56,7 @@ Postgres ──── estado + fila (SELECT ... FOR UPDATE SKIP LOCKED + LISTEN/
 | Render worker | Node.js + TypeScript (strict) + `@remotion/renderer` |
 | Composições | React + Remotion (pacote compartilhado) |
 | Frontend | Next.js + `@remotion/player` |
-| Banco / fila | PostgreSQL |
+| Banco / fila | PostgreSQL (`database/sql` + `lib/pq`, sem dependências transitivas) |
 | Storage | Filesystem local (`./media`), servido pela API com `http.ServeContent` (suporta Range/seek) |
 | Validação | Zod 4 (TS) → JSON Schema gerado com `z.toJSONSchema` → `santhosh-tekuri/jsonschema/v5` (Go, sem dependências transitivas) |
 | LLM | Gemini Flash (padrão) + Claude Opus (`claude-opus-5-5`, fallback/premium) — confirmar IDs atuais dos modelos |
@@ -216,7 +216,7 @@ FAILED → retry volta ao estado anterior ao erro
 - Erros com wrap (`fmt.Errorf("...: %w", err)`) e erros de domínio sentinela/tipados.
 - DI manual no `main` (composition root). Sem frameworks de DI.
 - Testes table-driven; domínio e use cases testados sem infraestrutura (fakes das portas).
-- Testes de integração do Postgres com testcontainers.
+- Testes de integração do Postgres contra banco real via `DATABASE_URL` (ex.: `docker compose up -d postgres`); pulados quando a variável não está definida.
 
 ### TypeScript
 - `strict: true`, sem `any`.
