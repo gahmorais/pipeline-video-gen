@@ -7,13 +7,15 @@
     "render": "tsx src/main.ts render",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:integration": "RUN_RENDER_TESTS=1 vitest run test/integration"
+    "test:integration": "RUN_RENDER_TESTS=1 vitest run test/integration",
+    "worker": "tsx src/main.ts worker"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.545",
     "@remotion/renderer": "4.0.545",
     "@videogen/compositions": "workspace:*",
     "@videogen/video-schema": "workspace:*",
+    "pg": "^8.23.1",
     "pino": "^9.7.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
@@ -22,6 +24,7 @@
   },
   "devDependencies": {
     "@types/node": "^22",
+    "@types/pg": "^8.23.1",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"
   }

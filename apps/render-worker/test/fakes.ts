@@ -54,7 +54,7 @@ export class FakeStorage implements MediaStorage {
 
 export class FakeProgress implements ProgressReporter {
   readonly events: number[] = [];
-  async report(_jobId: string, progress: number): Promise<void> {
+  async report(_jobId: string, _renderId: string, progress: number): Promise<void> {
     this.events.push(progress);
   }
 }

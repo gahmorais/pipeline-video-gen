@@ -29,3 +29,34 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
     },
   };
 }
+
+export interface QueueWorkerConfig {
+  databaseUrl: string;
+  apiUrl: string;
+  internalToken: string;
+  workerId: string;
+  pollIntervalMs: number;
+  heartbeatMs: number;
+  retryBaseMs: number;
+  retryMaxMs: number;
+  apiTimeoutMs: number;
+}
+
+/** Configuração do modo consumidor de fila (comando `worker`). */
+export function loadQueueWorkerConfig(env: NodeJS.ProcessEnv = process.env, hostname = "local"): QueueWorkerConfig {
+  const missing = ["DATABASE_URL", "API_URL", "INTERNAL_TOKEN"].filter((k) => !env[k]);
+  if (missing.length > 0) {
+    throw new Error(`variáveis obrigatórias ausentes: ${missing.join(", ")}`);
+  }
+  return {
+    databaseUrl: env.DATABASE_URL as string,
+    apiUrl: (env.API_URL as string).replace(/\/+$/, ""),
+    internalToken: env.INTERNAL_TOKEN as string,
+    workerId: env.WORKER_ID || `render@${hostname}`,
+    pollIntervalMs: intFromEnv(env, "POLL_INTERVAL_MS", 5_000),
+    heartbeatMs: intFromEnv(env, "HEARTBEAT_MS", 30_000),
+    retryBaseMs: intFromEnv(env, "RETRY_BASE_MS", 10_000),
+    retryMaxMs: intFromEnv(env, "RETRY_MAX_MS", 120_000),
+    apiTimeoutMs: intFromEnv(env, "API_TIMEOUT_MS", 10_000),
+  };
+}

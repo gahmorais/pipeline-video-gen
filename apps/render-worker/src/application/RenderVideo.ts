@@ -41,14 +41,14 @@ export class RenderVideo {
     const outputKey = outputKeyFor(request.jobId, request.renderId);
 
     if (await storage.exists(outputKey)) {
-      await progress.report(request.jobId, 1);
+      await progress.report(request.jobId, request.renderId, 1);
       return { jobId: request.jobId, renderId: request.renderId, outputKey, sizeBytes: 0, reused: true };
     }
 
     const pending: Promise<void>[] = [];
     const onProgress = createProgressThrottle((p) => {
       // Falha ao reportar progresso não deve derrubar o render.
-      pending.push(progress.report(request.jobId, p).catch(() => undefined));
+      pending.push(progress.report(request.jobId, request.renderId, p).catch(() => undefined));
     }, this.deps.progressStepPercent);
 
     const target = await storage.createWriteTarget(outputKey);

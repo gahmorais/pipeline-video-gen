@@ -17,7 +17,7 @@ Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
 | 7 | Postgres: repositório + fila | Migrations, `VideoJobRepository`, `JobQueue` (SKIP LOCKED, reclaim de jobs travados, LISTEN/NOTIFY) | Testes de integração contra Postgres real | ✅ |
 | 8 | HTTP + SSE | Handlers REST, SSE de eventos por job, endpoints internos para workers, servir MP4 (`http.ServeContent`) | `httptest` + teste e2e da API com Postgres | ✅ |
 | 9 | LLM adapters | `GeminiStoryboardGenerator`, `AnthropicStoryboardGenerator`, `FallbackGenerator`, `MeteredGenerator`; storyboard worker | `go test` com servidores HTTP fake simulando os provedores | ✅ (validar com chaves reais) |
-| 10 | Render worker conectado | Adapter de fila Postgres + reporter HTTP para a API; loop de consumo | Teste e2e: job criado via API → render → `COMPLETED` | ⏳ |
+| 10 | Render worker conectado | Adapter de fila Postgres + reporter HTTP para a API; loop de consumo | Teste e2e: job criado via API → render → `COMPLETED` | ✅ |
 | 11 | Frontend | Next.js: prompt → preview no `Player` → edição → render → progresso SSE → download | Build + teste manual | ⏳ |
 | 12 | Operação | Logs estruturados com `job_id`, métricas, limpeza de `./media`, rate limit/quotas | Testes unitários + checklist | ⏳ |
 
@@ -65,3 +65,8 @@ Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
 - **Storyboard worker como goroutines da API**: `STORYBOARD_WORKERS` (padrão 2) loops, acordados por `LISTEN/NOTIFY` com polling de segurança. Falha do LLM vira `FAILED` no use case; erros de infraestrutura usam o retry/backoff da fila e, esgotados, marcam o job como `FAILED`.
 - **Manutenção da fila** (reclaim de tarefas abandonadas, de qualquer tipo) roda só na API, a cada minuto.
 - **Assets permitidos ao LLM** fixos no system prompt (`assets/logo.png`, `assets/product-placeholder.png`) até existir upload de assets.
+- **Render worker não lê `video_jobs`**: o endpoint interno `start` devolve o snapshot do job (template + storyboard). O worker só toca na tabela `task_queue` e reporta à API, que continua dona do estado.
+- **`ProcessRenderTask`** (use case do worker): `start` na API → render com heartbeats → `complete` na API → `done` na fila. Respostas `render-mismatch`/`invalid-transition`/`not-found` no `start` = tarefa obsoleta (descartada sem renderizar). Falhas retentáveis voltam à fila com backoff (job continua `RENDERING`); falha definitiva ou tentativas esgotadas → `fail` na API (`FAILED`).
+- **Retry só na fila** no modo worker (sem `withRetry` em processo), evitando retentativas multiplicadas.
+- **Um render por vez por worker** (`WorkerLoop`); SIGINT/SIGTERM aguardam o render em andamento.
+- **E2E validado**: API + storyboard worker (fixture) + render worker (Remotion real) → MP4 H.264 1080p30 servido com Range.

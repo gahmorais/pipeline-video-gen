@@ -1,23 +1,28 @@
 /**
- * Composition root do render worker (modo CLI).
+ * Composition root do render worker.
  *
  * Uso:
  *   pnpm render <storyboard.json> [--job-id <id>] [--render-id <id>] [--template promo] [--template-version 1]
- *
- * O modo consumidor de fila (Postgres) é adicionado na etapa 10.
+ *   pnpm worker   (consome a fila de render no Postgres e reporta à API)
  */
 import { randomUUID } from "node:crypto";
+import { hostname } from "node:os";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
+import pg from "pg";
 import { pino } from "pino";
+import { HttpJobGateway } from "./adapters/api-gateway/HttpJobGateway";
+import { PostgresRenderQueue } from "./adapters/postgres-queue/PostgresRenderQueue";
+import { ProcessRenderTask } from "./application/ProcessRenderTask";
+import { WorkerLoop } from "./application/WorkerLoop";
 import { LoggerProgressReporter } from "./adapters/console/LoggerProgressReporter";
 import { LocalFsMediaStorage } from "./adapters/localfs/LocalFsMediaStorage";
 import { RemotionLocalRenderer } from "./adapters/remotion-local/RemotionLocalRenderer";
 import { VideoSchemaValidator } from "./adapters/schema/VideoSchemaValidator";
 import { RenderVideo } from "./application/RenderVideo";
 import { withRetry } from "./application/retry";
-import { loadConfig } from "./config";
+import { loadConfig, loadQueueWorkerConfig } from "./config";
 import { InvalidRenderRequestError } from "./domain/errors";
 
 const logger = pino({ name: "render-worker" });
@@ -84,14 +89,74 @@ async function runRenderCommand(argv: string[]): Promise<void> {
   );
 }
 
+async function runWorkerCommand(): Promise<void> {
+  const config = loadConfig();
+  const queueConfig = loadQueueWorkerConfig(process.env, hostname());
+  const log = logger.child({ worker_id: queueConfig.workerId });
+
+  const pool = new pg.Pool({ connectionString: queueConfig.databaseUrl, max: 3 });
+  const queue = new PostgresRenderQueue(pool, queueConfig.databaseUrl);
+  const gateway = new HttpJobGateway({
+    baseUrl: queueConfig.apiUrl,
+    internalToken: queueConfig.internalToken,
+    timeoutMs: queueConfig.apiTimeoutMs,
+  });
+  const renderer = new RemotionLocalRenderer(config.remotion);
+  const renderVideo = new RenderVideo({
+    renderer,
+    storage: new LocalFsMediaStorage(config.mediaDir),
+    progress: gateway,
+    validator: new VideoSchemaValidator(),
+  });
+  const loop = new WorkerLoop({
+    queue,
+    process: new ProcessRenderTask({
+      queue,
+      gateway,
+      renderVideo,
+      heartbeatMs: queueConfig.heartbeatMs,
+      retryBaseMs: queueConfig.retryBaseMs,
+      retryMaxMs: queueConfig.retryMaxMs,
+    }),
+    logger: log,
+    workerId: queueConfig.workerId,
+    pollIntervalMs: queueConfig.pollIntervalMs,
+    errorBackoffMs: 5_000,
+  });
+
+  // Bundle UMA vez no startup (CLAUDE.md: nunca por job).
+  log.info({ media_dir: config.mediaDir, concurrency: config.remotion.concurrency }, "pré-aquecendo bundle");
+  await renderer.warmUp();
+  await queue.start();
+  log.info("worker aguardando tarefas de render");
+
+  const controller = new AbortController();
+  const stop = (signal: string) => {
+    log.info({ signal }, "encerrando após o render em andamento");
+    controller.abort();
+  };
+  process.once("SIGINT", () => stop("SIGINT"));
+  process.once("SIGTERM", () => stop("SIGTERM"));
+
+  try {
+    await loop.run(controller.signal);
+  } finally {
+    await queue.close();
+    await pool.end();
+  }
+}
+
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
   switch (command) {
     case "render":
       await runRenderCommand(rest);
       return;
+    case "worker":
+      await runWorkerCommand();
+      return;
     default:
-      throw new Error(`comando desconhecido: ${command ?? "(vazio)"}. Use: render <storyboard.json>`);
+      throw new Error(`comando desconhecido: ${command ?? "(vazio)"}. Use: render <storyboard.json> | worker`);
   }
 }
 
