@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "brand": {
+    "primary": "#0B5FFF",
+    "logoUrl": "assets/logo.png"
+  },
+  "scenes": [
+    { "type": "title", "text": "Ofertas da semana", "durationSec": 2 },
+    {
+      "type": "product",
+      "name": "Leitor de código de barras",
+      "price": "R$ 499,90",
+      "imageUrl": "assets/scanner.png",
+      "durationSec": 3
+    },
+    { "type": "cta", "text": "Compre agora", "durationSec": 1.5 }
+  ]
+}

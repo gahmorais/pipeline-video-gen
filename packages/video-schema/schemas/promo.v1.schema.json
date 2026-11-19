@@ -1,0 +1,136 @@
+{
+  "$id": "https://videogen.local/schemas/promo.v1.schema.json",
+  "title": "promo storyboard v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "brand": {
+      "type": "object",
+      "properties": {
+        "primary": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Cor hexadecimal no formato #RRGGBB"
+        },
+        "logoUrl": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "description": "Referência a um asset já validado pela API (caminho relativo ou URL interna)"
+        }
+      },
+      "required": [
+        "primary",
+        "logoUrl"
+      ],
+      "additionalProperties": false
+    },
+    "scenes": {
+      "minItems": 1,
+      "maxItems": 12,
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "title"
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60
+              },
+              "durationSec": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 8
+              }
+            },
+            "required": [
+              "type",
+              "text",
+              "durationSec"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "product"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60
+              },
+              "price": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20
+              },
+              "imageUrl": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048,
+                "description": "Referência a um asset já validado pela API (caminho relativo ou URL interna)"
+              },
+              "durationSec": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 10
+              }
+            },
+            "required": [
+              "type",
+              "name",
+              "price",
+              "imageUrl",
+              "durationSec"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "cta"
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              },
+              "durationSec": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 8
+              }
+            },
+            "required": [
+              "type",
+              "text",
+              "durationSec"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "brand",
+    "scenes"
+  ],
+  "additionalProperties": false
+}

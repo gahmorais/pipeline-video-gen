@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "brand": { "primary": "#112233", "logoUrl": "assets/logo.png" },
+  "scenes": [{ "type": "title", "text": "Olá", "durationSec": 1 }]
+}

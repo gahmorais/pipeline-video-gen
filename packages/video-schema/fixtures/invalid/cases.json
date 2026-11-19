@@ -1,0 +1,113 @@
+[
+  {
+    "name": "schemaVersion errada",
+    "errorPath": "schemaVersion",
+    "input": {
+      "schemaVersion": 2,
+      "brand": { "primary": "#112233", "logoUrl": "a.png" },
+      "scenes": [{ "type": "title", "text": "x", "durationSec": 1 }]
+    }
+  },
+  {
+    "name": "cor fora do formato",
+    "errorPath": "brand.primary",
+    "input": {
+      "schemaVersion": 1,
+      "brand": { "primary": "blue", "logoUrl": "a.png" },
+      "scenes": [{ "type": "title", "text": "x", "durationSec": 1 }]
+    }
+  },
+  {
+    "name": "sem cenas",
+    "errorPath": "scenes",
+    "input": {
+      "schemaVersion": 1,
+      "brand": { "primary": "#112233", "logoUrl": "a.png" },
+      "scenes": []
+    }
+  },
+  {
+    "name": "mais de 12 cenas",
+    "errorPath": "scenes",
+    "input": {
+      "schemaVersion": 1,
+      "brand": { "primary": "#112233", "logoUrl": "a.png" },
+      "scenes": [
+        { "type": "title", "text": "1", "durationSec": 1 },
+        { "type": "title", "text": "2", "durationSec": 1 },
+        { "type": "title", "text": "3", "durationSec": 1 },
+        { "type": "title", "text": "4", "durationSec": 1 },
+        { "type": "title", "text": "5", "durationSec": 1 },
+        { "type": "title", "text": "6", "durationSec": 1 },
+        { "type": "title", "text": "7", "durationSec": 1 },
+        { "type": "title", "text": "8", "durationSec": 1 },
+        { "type": "title", "text": "9", "durationSec": 1 },
+        { "type": "title", "text": "10", "durationSec": 1 },
+        { "type": "title", "text": "11", "durationSec": 1 },
+        { "type": "title", "text": "12", "durationSec": 1 },
+        { "type": "title", "text": "13", "durationSec": 1 }
+      ]
+    }
+  },
+  {
+    "name": "título longo demais",
+    "errorPath": "scenes.0.text",
+    "input": {
+      "schemaVersion": 1,
+      "brand": { "primary": "#112233", "logoUrl": "a.png" },
+      "scenes": [
+        {
+          "type": "title",
+          "text": "Este título tem claramente mais de sessenta caracteres para estourar o limite",
+          "durationSec": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "duração acima do máximo",
+    "errorPath": "scenes.0.durationSec",
+    "input": {
+      "schemaVersion": 1,
+      "brand": { "primary": "#112233", "logoUrl": "a.png" },
+      "scenes": [{ "type": "title", "text": "x", "durationSec": 9 }]
+    }
+  },
+  {
+    "name": "duração abaixo do mínimo",
+    "errorPath": "scenes.0.durationSec",
+    "input": {
+      "schemaVersion": 1,
+      "brand": { "primary": "#112233", "logoUrl": "a.png" },
+      "scenes": [{ "type": "cta", "text": "x", "durationSec": 0.5 }]
+    }
+  },
+  {
+    "name": "tipo de cena desconhecido",
+    "errorPath": "scenes.0.type",
+    "input": {
+      "schemaVersion": 1,
+      "brand": { "primary": "#112233", "logoUrl": "a.png" },
+      "scenes": [{ "type": "video", "src": "x.mp4", "durationSec": 2 }]
+    }
+  },
+  {
+    "name": "produto sem imagem",
+    "errorPath": "scenes.0.imageUrl",
+    "input": {
+      "schemaVersion": 1,
+      "brand": { "primary": "#112233", "logoUrl": "a.png" },
+      "scenes": [{ "type": "product", "name": "x", "price": "1", "durationSec": 2 }]
+    }
+  },
+  {
+    "name": "campo extra não permitido",
+    "errorPath": "",
+    "input": {
+      "schemaVersion": 1,
+      "brand": { "primary": "#112233", "logoUrl": "a.png" },
+      "scenes": [{ "type": "title", "text": "x", "durationSec": 1 }],
+      "durationInFrames": 9999
+    }
+  }
+]

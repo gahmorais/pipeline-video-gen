@@ -58,7 +58,7 @@ Postgres ──── estado + fila (SELECT ... FOR UPDATE SKIP LOCKED + LISTEN/
 | Frontend | Next.js + `@remotion/player` |
 | Banco / fila | PostgreSQL |
 | Storage | Filesystem local (`./media`), servido pela API com `http.ServeContent` (suporta Range/seek) |
-| Validação | Zod (TS) → JSON Schema gerado → `santhosh-tekuri/jsonschema` (Go) |
+| Validação | Zod 4 (TS) → JSON Schema gerado com `z.toJSONSchema` → `santhosh-tekuri/jsonschema` (Go) |
 | LLM | Gemini Flash (padrão) + Claude Opus (`claude-opus-5-5`, fallback/premium) — confirmar IDs atuais dos modelos |
 
 ## Estrutura do monorepo
@@ -99,7 +99,7 @@ docker-compose.yml              # postgres
 
 - Definido **uma vez** em `packages/video-schema` com Zod.
 - Usado em `<Composition schema={...}>` (Studio gera formulário e valida props).
-- `zod-to-json-schema` gera `storyboard.schema.json`, que é:
+- `pnpm --filter @videogen/video-schema generate` gera `promo.v1.schema.json` (via `z.toJSONSchema`, Zod 4 — mesma versão usada pelo Remotion), que é:
   - usado pelo Go para validar a saída do LLM e os PATCHs do usuário;
   - enviado ao LLM como structured output / tool schema.
 - Todo job grava `templateId`, `templateVersion` e `schemaVersion`.
