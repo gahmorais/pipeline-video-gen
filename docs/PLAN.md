@@ -1,0 +1,26 @@
+# Plano de implementação
+
+Cada etapa é pequena, entregável e **só é commitada após testes passando e validação manual/automática**.
+Convenção de commit: `feat(etapa-N): <descrição>` (ou `chore`/`test`/`docs` quando aplicável).
+
+Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
+
+| # | Etapa | Entregável | Validação | Status |
+|---|---|---|---|---|
+| 0 | Bootstrap do monorepo | `CLAUDE.md`, plano, `.gitignore`, pnpm workspace, `docker-compose.yml` (Postgres) | `pnpm install` ok; `docker compose config` ok | ✅ |
+| 1 | `packages/video-schema` | Schema Zod `Promo` v1, tipos, fixtures, script que gera `storyboard.schema.json`, helper `totalDurationSec` | Vitest: fixtures válidas passam, inválidas falham (limites); JSON Schema gerado e determinístico | ⏳ |
+| 2 | `packages/compositions` | Composição Remotion `Promo` (cenas title/product/cta em `<Series>`), `calculateMetadata` a partir de `durationSec`, Root para o Studio | `tsc --noEmit`; Vitest de cálculo de frames; `renderStill` de um frame de cada cena | ⏳ |
+| 3 | `apps/render-worker` (CLI) | Hexagonal: ports (`Renderer`, `MediaStorage`), use case `RenderVideo`, adapters `remotion-local` (bundle único) e `localfs`; CLI `render <fixture.json>` | Vitest do use case com fakes (validação, idempotência, progresso); render real de fixture curta gerando MP4 válido (ffprobe) | ⏳ |
+| 4 | `apps/api` — domínio | Agregado `VideoJob`, `JobStatus`, máquina de estados, erros de domínio, eventos | `go test ./internal/domain/...` table-driven com todas as transições válidas/inválidas | ⏳ |
+| 5 | `apps/api` — portas e use cases | `ports/` + `application/` (CreateVideo, GenerateStoryboard, UpdateStoryboard, RequestRender, ReportRenderProgress, CompleteRender, FailJob, RetryJob) | `go test` com fakes das portas | ⏳ |
+| 6 | Validação de schema em Go | Adapter que valida storyboard contra `storyboard.schema.json` (embutido) | `go test` com as mesmas fixtures do pacote TS | ⏳ |
+| 7 | Postgres: repositório + fila | Migrations, `VideoJobRepository`, `JobQueue` (SKIP LOCKED, reclaim de jobs travados, LISTEN/NOTIFY) | Testes de integração contra Postgres real | ⏳ |
+| 8 | HTTP + SSE | Handlers REST, SSE de eventos por job, endpoints internos para workers, servir MP4 (`http.ServeContent`) | `httptest` + teste e2e da API com Postgres | ⏳ |
+| 9 | LLM adapters | `GeminiStoryboardGenerator`, `AnthropicStoryboardGenerator`, `FallbackGenerator`, `MeteredGenerator`; storyboard worker | `go test` com servidores HTTP fake simulando os provedores | ⏳ |
+| 10 | Render worker conectado | Adapter de fila Postgres + reporter HTTP para a API; loop de consumo | Teste e2e: job criado via API → render → `COMPLETED` | ⏳ |
+| 11 | Frontend | Next.js: prompt → preview no `Player` → edição → render → progresso SSE → download | Build + teste manual | ⏳ |
+| 12 | Operação | Logs estruturados com `job_id`, métricas, limpeza de `./media`, rate limit/quotas | Testes unitários + checklist | ⏳ |
+
+## Decisões de design registradas durante a implementação
+
+- **Workers não escrevem no estado do `VideoJob`.** Eles consomem a fila (tabela de fila no Postgres) e reportam progresso/resultado para a API por endpoints internos. A API aplica as transições no agregado (regra 1 do `CLAUDE.md`).
