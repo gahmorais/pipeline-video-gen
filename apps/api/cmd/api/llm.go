@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gahmorais/pipeline-video-gen/apps/api/internal/adapters/llm"
@@ -25,15 +26,17 @@ var (
 )
 
 type llmConfig struct {
-	Provider        string // auto | fallback | gemini | anthropic | fixture
-	GeminiKey       string
-	GeminiModel     string
-	GeminiPrice     llm.Price
-	AnthropicKey    string
-	AnthropicModel  string
-	AnthropicPrice  llm.Price
-	RequestTimeout  time.Duration
-	FixtureFilePath string
+	Provider       string // auto | fallback | gemini | anthropic | fixture
+	GeminiKey      string
+	GeminiModel    string
+	GeminiPrice    llm.Price
+	AnthropicKey   string
+	AnthropicModel string
+	AnthropicPrice llm.Price
+	RequestTimeout time.Duration
+	// Fixtures: template → caminho do JSON (STORYBOARD_FIXTURES="promo=a.json,app-promo=b.json").
+	// STORYBOARD_FIXTURE (legado) vale para o template promo.
+	Fixtures map[string]string
 }
 
 func loadLLMConfig(getenv func(string) string) (llmConfig, error) {
@@ -60,15 +63,23 @@ func loadLLMConfig(getenv func(string) string) (llmConfig, error) {
 		return p, nil
 	}
 	cfg := llmConfig{
-		Provider:        or("STORYBOARD_PROVIDER", "auto"),
-		GeminiKey:       getenv("GEMINI_API_KEY"),
-		GeminiModel:     or("GEMINI_MODEL", defaultGeminiModel),
-		AnthropicKey:    getenv("ANTHROPIC_API_KEY"),
-		AnthropicModel:  or("ANTHROPIC_MODEL", defaultAnthropicModel),
-		RequestTimeout:  2 * time.Minute,
-		FixtureFilePath: getenv("STORYBOARD_FIXTURE"),
+		Provider:       or("STORYBOARD_PROVIDER", "auto"),
+		GeminiKey:      getenv("GEMINI_API_KEY"),
+		GeminiModel:    or("GEMINI_MODEL", defaultGeminiModel),
+		AnthropicKey:   getenv("ANTHROPIC_API_KEY"),
+		AnthropicModel: or("ANTHROPIC_MODEL", defaultAnthropicModel),
+		RequestTimeout: 2 * time.Minute,
 	}
-	var err error
+	fixtures, err := parseFixtures(getenv("STORYBOARD_FIXTURES"))
+	if err != nil {
+		return cfg, err
+	}
+	if legacy := getenv("STORYBOARD_FIXTURE"); legacy != "" {
+		if _, ok := fixtures["promo"]; !ok {
+			fixtures["promo"] = legacy
+		}
+	}
+	cfg.Fixtures = fixtures
 	if cfg.GeminiPrice, err = price("GEMINI", defaultGeminiPrice); err != nil {
 		return cfg, err
 	}
@@ -124,15 +135,35 @@ func buildGenerator(cfg llmConfig, catalog ports.TemplateCatalog, recorder ports
 		}
 		return llm.NewFallbackGenerator(primary, secondary, catalog, logger), nil
 	case "fixture":
-		if cfg.FixtureFilePath == "" {
-			return nil, fmt.Errorf("STORYBOARD_FIXTURE deve apontar para um storyboard JSON quando STORYBOARD_PROVIDER=fixture")
+		if len(cfg.Fixtures) == 0 {
+			return nil, fmt.Errorf("defina STORYBOARD_FIXTURES (template=arquivo.json,...) quando STORYBOARD_PROVIDER=fixture")
 		}
-		data, err := os.ReadFile(cfg.FixtureFilePath)
-		if err != nil {
-			return nil, err
+		byTemplate := map[string][]byte{}
+		for id, path := range cfg.Fixtures {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return nil, fmt.Errorf("fixture de %s: %w", id, err)
+			}
+			byTemplate[id] = data
 		}
-		return llm.FixtureGenerator{Storyboard: data}, nil
+		return llm.FixtureGenerator{ByTemplate: byTemplate}, nil
 	default:
 		return nil, fmt.Errorf("STORYBOARD_PROVIDER desconhecido: %q", cfg.Provider)
 	}
+}
+
+// parseFixtures lê "promo=a.json,app-promo=b.json".
+func parseFixtures(raw string) (map[string]string, error) {
+	out := map[string]string{}
+	if strings.TrimSpace(raw) == "" {
+		return out, nil
+	}
+	for _, pair := range strings.Split(raw, ",") {
+		id, path, ok := strings.Cut(strings.TrimSpace(pair), "=")
+		if !ok || id == "" || path == "" {
+			return nil, fmt.Errorf("STORYBOARD_FIXTURES inválido: %q (use template=arquivo.json)", pair)
+		}
+		out[id] = path
+	}
+	return out, nil
 }

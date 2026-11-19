@@ -1,11 +1,13 @@
 "use client";
 
-import { totalDurationSec, type PromoStoryboard, type ValidationIssue } from "@videogen/video-schema";
+import { totalDurationSec, type PromoStoryboard, type TemplateId, type ValidationIssue } from "@videogen/video-schema";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, newIdempotencyKey, type JobStatus, type VideoDto } from "@/lib/api";
 import { estimateRemainingSeconds, formatDuration } from "@/lib/eta";
-import { parseStoryboard, sameStoryboard, validate } from "@/lib/storyboard-editor";
+import { sameStoryboard } from "@/lib/storyboard-editor";
+import { parseFor, resolveTemplateId, templateLabel, validateFor, type AnyStoryboard } from "@/lib/templates";
 import { useVideoJob } from "@/lib/use-video-job";
+import { JsonStoryboardEditor } from "./JsonStoryboardEditor";
 import { PreviewPlayer } from "./PreviewPlayer";
 import { StoryboardEditor } from "./StoryboardEditor";
 
@@ -23,14 +25,19 @@ const EDITABLE: JobStatus[] = ["STORYBOARD_READY", "COMPLETED"];
 
 export function VideoWorkspace({ id }: { id: string }) {
   const { job, connection, apply } = useVideoJob(id);
-  const [draft, setDraft] = useState<PromoStoryboard | null>(null);
+  // Rascunho pode estar fora do schema durante a edição (o editor JSON permite).
+  const [draft, setDraft] = useState<unknown>(null);
   const [serverIssues, setServerIssues] = useState<ValidationIssue[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Uma chave por intenção de render: reenvios (duplo clique, retry de rede) não duplicam.
   const renderKey = useRef<string | null>(null);
 
-  const saved = useMemo(() => (job?.storyboard ? parseStoryboard(job.storyboard) : null), [job?.storyboard]);
+  const templateId: TemplateId | null = job ? resolveTemplateId(job.template.id) : null;
+  const saved = useMemo<AnyStoryboard | null>(
+    () => (templateId && job?.storyboard ? parseFor(templateId, job.storyboard) : null),
+    [templateId, job?.storyboard],
+  );
   const dirty = draft !== null && saved !== null && !sameStoryboard(draft, saved);
 
   // Sincroniza o rascunho com o servidor, sem atropelar edições não salvas.
@@ -41,7 +48,11 @@ export function VideoWorkspace({ id }: { id: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saved]);
 
-  const clientIssues = useMemo(() => (draft ? validate(draft) : []), [draft]);
+  const clientIssues = useMemo(
+    () => (templateId && draft !== null ? validateFor(templateId, draft) : []),
+    [templateId, draft],
+  );
+  const preview = (clientIssues.length === 0 ? (draft as AnyStoryboard | null) : null) ?? saved;
   const issues = clientIssues.length > 0 ? clientIssues : serverIssues;
   const editable = job !== null && EDITABLE.includes(job.status);
 
@@ -76,6 +87,9 @@ export function VideoWorkspace({ id }: { id: string }) {
   if (!job) {
     return <p className="muted">Conectando…</p>;
   }
+  if (!templateId) {
+    return <p className="error">Template não suportado por esta interface: {job.template.id}</p>;
+  }
 
   return (
     <div className="workspace">
@@ -84,7 +98,9 @@ export function VideoWorkspace({ id }: { id: string }) {
           <span className={`badge status-${job.status.toLowerCase()}`}>{STATUS_LABEL[job.status]}</span>
           {connection !== "open" && <span className="muted">reconectando…</span>}
         </div>
-        <p className="prompt">“{job.prompt}”</p>
+        <p className="prompt">
+          {templateLabel(templateId)} · “{job.prompt}”
+        </p>
       </header>
 
       {(job.status === "DRAFT" || job.status === "GENERATING_STORYBOARD") && <div className="spinner" aria-label="Carregando" />}
@@ -100,10 +116,10 @@ export function VideoWorkspace({ id }: { id: string }) {
         </div>
       )}
 
-      {draft && (
+      {draft !== null && preview && (
         <div className="grid">
           <section className="stack">
-            <PreviewPlayer storyboard={clientIssues.length === 0 ? draft : (saved ?? draft)} />
+            <PreviewPlayer templateId={templateId} storyboard={preview} />
             {clientIssues.length > 0 && <p className="muted">Preview mostra a última versão válida.</p>}
 
             <RenderPanel
@@ -129,7 +145,16 @@ export function VideoWorkspace({ id }: { id: string }) {
                 </button>
               </div>
             </div>
-            <StoryboardEditor draft={draft} issues={issues} disabled={!editable || busy} onChange={setDraft} />
+            {templateId === "promo" ? (
+              <StoryboardEditor
+                draft={draft as PromoStoryboard}
+                issues={issues}
+                disabled={!editable || busy}
+                onChange={setDraft}
+              />
+            ) : (
+              <JsonStoryboardEditor value={draft} issues={issues} disabled={!editable || busy} onChange={setDraft} />
+            )}
           </section>
         </div>
       )}

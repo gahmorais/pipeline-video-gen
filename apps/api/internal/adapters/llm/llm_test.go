@@ -291,13 +291,17 @@ func TestMeteredGeneratorRecordsUsageAndCost(t *testing.T) {
 	}
 }
 
-func TestFixtureGeneratorReturnsCopy(t *testing.T) {
-	f := llm.FixtureGenerator{Storyboard: []byte(`{"a":1}`)}
-	out, _ := f.Generate(ctx, ports.GenerateInput{})
+func TestFixtureGeneratorByTemplate(t *testing.T) {
+	f := llm.FixtureGenerator{ByTemplate: map[string][]byte{"promo": []byte(`{"a":1}`)}}
+	promo := ports.GenerateInput{Template: domain.TemplateRef{ID: "promo", Version: 1}}
+	out, _ := f.Generate(ctx, promo)
 	out.Storyboard[0] = 'X'
-	again, _ := f.Generate(ctx, ports.GenerateInput{})
+	again, _ := f.Generate(ctx, promo)
 	if string(again.Storyboard) != `{"a":1}` {
 		t.Fatal("fixture compartilhou o buffer")
+	}
+	if _, err := f.Generate(ctx, ports.GenerateInput{Template: domain.TemplateRef{ID: "app-promo", Version: 1}}); !errors.Is(err, llm.ErrNoFixture) {
+		t.Fatalf("template sem fixture deve falhar com ErrNoFixture: %v", err)
 	}
 }
 
@@ -332,4 +336,35 @@ func abs(f float64) float64 {
 	return f
 }
 
-var _ = domain.JobID("")
+func TestSystemPromptIsTemplateSpecific(t *testing.T) {
+	cat, _ := schema.NewEmbeddedCatalog()
+	appRef, ok := cat.Latest("app-promo")
+	if !ok {
+		t.Fatal("app-promo ausente no catálogo")
+	}
+	appSchema, _ := cat.JSONSchema(appRef)
+
+	// Captura o system prompt enviado ao Gemini para cada template.
+	prompts := map[string]string{}
+	for _, in := range []ports.GenerateInput{input(t), {JobID: "j", Prompt: "Retro 99", Template: appRef, JSONSchema: appSchema}} {
+		srv, c := fakeServer(t, 200, `{"candidates":[{"content":{"parts":[{"text":"{}"}]}}]}`)
+		g := llm.NewGeminiGenerator(llm.GeminiConfig{APIKey: "k", Model: "m", BaseURL: srv.URL}, srv.Client())
+		_, _ = g.Generate(ctx, in)
+		prompts[in.Template.ID] = dig(c.body, "systemInstruction", "parts", 0, "text").(string)
+	}
+
+	promo, app := prompts["promo"], prompts["app-promo"]
+	for _, want := range []string{"varejo", `"product"`, "assets/product-placeholder.png", `"schemaVersion" deve ser 1`} {
+		if !strings.Contains(promo, want) {
+			t.Errorf("prompt promo sem %q", want)
+		}
+	}
+	for _, want := range []string{"verticais", `"clip"`, "assets/app-promo/sample-clip.mp4", "assets/app-promo/sample-track.mp3", `"cta"`, "google-play"} {
+		if !strings.Contains(app, want) {
+			t.Errorf("prompt app-promo sem %q", want)
+		}
+	}
+	if strings.Contains(app, `"product"`) {
+		t.Error("prompt app-promo não deve citar cenas do template promo")
+	}
+}

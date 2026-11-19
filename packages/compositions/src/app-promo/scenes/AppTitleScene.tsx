@@ -33,6 +33,7 @@ export const AppTitleScene: React.FC<{ scene: Props; brand: AppBrand }> = ({ sce
             fontFamily: FONT_STACK,
             fontSize: 104,
             lineHeight: 1.1,
+            textWrap: "balance",
             fontWeight: 800,
             color: readableTextColor(brand.primary),
           }}

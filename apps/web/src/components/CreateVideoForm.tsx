@@ -2,13 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import type { TemplateId } from "@videogen/video-schema";
 import { api, ApiError } from "@/lib/api";
+import { TEMPLATE_OPTIONS } from "@/lib/templates";
 
 const MAX_PROMPT = 2000;
 
 export function CreateVideoForm() {
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
+  const [templateId, setTemplateId] = useState<TemplateId>("promo");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -21,7 +24,7 @@ export function CreateVideoForm() {
     setSubmitting(true);
     setError(null);
     try {
-      const job = await api.createVideo(prompt.trim());
+      const job = await api.createVideo(prompt.trim(), templateId);
       router.push(`/videos/${job.id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Não foi possível falar com a API.");
@@ -31,6 +34,25 @@ export function CreateVideoForm() {
 
   return (
     <form onSubmit={onSubmit} className="card stack">
+      <fieldset className="templates">
+        <legend className="label">Formato</legend>
+        {TEMPLATE_OPTIONS.map((t) => (
+          <label key={t.id} className={`template-option${t.id === templateId ? " selected" : ""}`}>
+            <input
+              type="radio"
+              name="template"
+              value={t.id}
+              checked={t.id === templateId}
+              onChange={() => setTemplateId(t.id)}
+            />
+            <span>
+              <strong>{t.label}</strong>
+              <br />
+              <span className="muted">{t.description}</span>
+            </span>
+          </label>
+        ))}
+      </fieldset>
       <label htmlFor="prompt" className="label">
         O que o vídeo deve mostrar?
       </label>

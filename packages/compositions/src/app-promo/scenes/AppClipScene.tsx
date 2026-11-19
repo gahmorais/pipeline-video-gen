@@ -48,6 +48,7 @@ export const AppClipScene: React.FC<{ scene: Props; brand: AppBrand }> = ({ scen
               borderRadius: 24,
               maxWidth: 1080 - VERTICAL_SAFE_AREA.side * 2,
               textAlign: "center",
+              textWrap: "balance",
             }}
           >
             {scene.caption}

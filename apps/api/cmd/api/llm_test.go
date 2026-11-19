@@ -57,6 +57,27 @@ func TestLoadLLMConfigDefaultsAndOverrides(t *testing.T) {
 	}
 }
 
+func TestParseFixtures(t *testing.T) {
+	cfg, err := loadLLMConfig(envMap(map[string]string{
+		"STORYBOARD_PROVIDER": "fixture",
+		"STORYBOARD_FIXTURES": "app-promo=b.json, promo=a.json",
+		"STORYBOARD_FIXTURE":  "legado.json",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Fixtures["promo"] != "a.json" || cfg.Fixtures["app-promo"] != "b.json" {
+		t.Fatalf("fixtures: %v", cfg.Fixtures)
+	}
+	legacy, _ := loadLLMConfig(envMap(map[string]string{"STORYBOARD_PROVIDER": "fixture", "STORYBOARD_FIXTURE": "x.json"}))
+	if legacy.Fixtures["promo"] != "x.json" {
+		t.Fatalf("STORYBOARD_FIXTURE legado deve valer para promo: %v", legacy.Fixtures)
+	}
+	if _, err := loadLLMConfig(envMap(map[string]string{"STORYBOARD_PROVIDER": "fixture", "STORYBOARD_FIXTURES": "semigual"})); err == nil {
+		t.Fatal("formato inválido deve falhar")
+	}
+}
+
 func TestBuildGenerator(t *testing.T) {
 	cat, _ := schema.NewEmbeddedCatalog()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -69,7 +90,7 @@ func TestBuildGenerator(t *testing.T) {
 		{Provider: "gemini", GeminiKey: "g", GeminiModel: "m"},
 		{Provider: "anthropic", AnthropicKey: "a", AnthropicModel: "m"},
 		{Provider: "fallback", GeminiKey: "g", AnthropicKey: "a"},
-		{Provider: "fixture", FixtureFilePath: fixturePath},
+		{Provider: "fixture", Fixtures: map[string]string{"promo": fixturePath}},
 	}
 	for _, cfg := range ok {
 		if _, err := buildGenerator(cfg, cat, nil, logger); err != nil {

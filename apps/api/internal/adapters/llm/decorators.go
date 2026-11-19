@@ -109,12 +109,20 @@ func EstimateCost(p Price, inputTokens, outputTokens int) float64 {
 
 // --- Fixture --------------------------------------------------------------------
 
-// FixtureGenerator devolve um roteiro fixo, sem custo. Para desenvolvimento local
-// e testes de ponta a ponta sem chave de API (STORYBOARD_PROVIDER=fixture).
+// FixtureGenerator devolve um roteiro fixo por template, sem custo. Para desenvolvimento
+// local e testes de ponta a ponta sem chave de API (STORYBOARD_PROVIDER=fixture).
 type FixtureGenerator struct {
-	Storyboard []byte
+	// ByTemplate mapeia o id do template para o storyboard devolvido.
+	ByTemplate map[string][]byte
 }
 
-func (f FixtureGenerator) Generate(context.Context, ports.GenerateInput) (ports.GenerateOutput, error) {
-	return ports.GenerateOutput{Storyboard: append([]byte(nil), f.Storyboard...), Model: "fixture"}, nil
+// ErrNoFixture indica template sem fixture configurada.
+var ErrNoFixture = errors.New("nenhuma fixture configurada para o template")
+
+func (f FixtureGenerator) Generate(_ context.Context, in ports.GenerateInput) (ports.GenerateOutput, error) {
+	sb, ok := f.ByTemplate[in.Template.ID]
+	if !ok {
+		return ports.GenerateOutput{}, fmt.Errorf("%w %q", ErrNoFixture, in.Template.ID)
+	}
+	return ports.GenerateOutput{Storyboard: append([]byte(nil), sb...), Model: "fixture"}, nil
 }

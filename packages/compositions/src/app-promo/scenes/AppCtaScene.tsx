@@ -40,6 +40,7 @@ export const AppCtaScene: React.FC<{ scene: Props; brand: AppBrand }> = ({ scene
             borderRadius: 999,
             transform: `scale(${pulse})`,
             textAlign: "center",
+            textWrap: "balance",
           }}
         >
           {scene.text}
