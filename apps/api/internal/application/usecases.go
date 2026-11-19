@@ -117,6 +117,12 @@ func (s *Service) GenerateStoryboard(ctx context.Context, id domain.JobID) error
 
 var errStaleTask = errors.New("tarefa obsoleta")
 
+// FailStoryboard marca como FAILED um job cuja tarefa de roteiro esgotou as tentativas
+// por erro de infraestrutura (ex.: banco indisponível). Sem efeito se o job já avançou.
+func (s *Service) FailStoryboard(ctx context.Context, id domain.JobID, reason string) error {
+	return s.failStoryboard(ctx, id, reason)
+}
+
 func (s *Service) failStoryboard(ctx context.Context, id domain.JobID, reason string) error {
 	_, err := s.mutate(ctx, id, func(j *domain.VideoJob) (bool, []ports.Task, error) {
 		if j.Status() != domain.StatusGeneratingStoryboard {

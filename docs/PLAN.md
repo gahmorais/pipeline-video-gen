@@ -16,7 +16,7 @@ Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
 | 6 | Validação de schema em Go | Adapter que valida storyboard contra `storyboard.schema.json` (embutido) | `go test` com as mesmas fixtures do pacote TS | ✅ |
 | 7 | Postgres: repositório + fila | Migrations, `VideoJobRepository`, `JobQueue` (SKIP LOCKED, reclaim de jobs travados, LISTEN/NOTIFY) | Testes de integração contra Postgres real | ✅ |
 | 8 | HTTP + SSE | Handlers REST, SSE de eventos por job, endpoints internos para workers, servir MP4 (`http.ServeContent`) | `httptest` + teste e2e da API com Postgres | ✅ |
-| 9 | LLM adapters | `GeminiStoryboardGenerator`, `AnthropicStoryboardGenerator`, `FallbackGenerator`, `MeteredGenerator`; storyboard worker | `go test` com servidores HTTP fake simulando os provedores | ⏳ |
+| 9 | LLM adapters | `GeminiStoryboardGenerator`, `AnthropicStoryboardGenerator`, `FallbackGenerator`, `MeteredGenerator`; storyboard worker | `go test` com servidores HTTP fake simulando os provedores | ✅ (validar com chaves reais) |
 | 10 | Render worker conectado | Adapter de fila Postgres + reporter HTTP para a API; loop de consumo | Teste e2e: job criado via API → render → `COMPLETED` | ⏳ |
 | 11 | Frontend | Next.js: prompt → preview no `Player` → edição → render → progresso SSE → download | Build + teste manual | ⏳ |
 | 12 | Operação | Logs estruturados com `job_id`, métricas, limpeza de `./media`, rate limit/quotas | Testes unitários + checklist | ⏳ |
@@ -57,3 +57,11 @@ Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
 - **SSE envia snapshots completos** (DTO inteiro) a cada mudança, não deltas: o cliente só substitui o estado. O broker coalesce sinais e o handler relê o job; assina antes da leitura inicial para não perder mudanças. O servidor **não** fecha o stream em estados finais (o `EventSource` reconectaria em loop).
 - **Broker em memória**: adequado a uma instância da API (cenário local). Múltiplas instâncias exigiriam fan-out via `LISTEN/NOTIFY`.
 - **Mídia via `http.ServeContent`** (Range/seek); `mediaUrl` inclui `?r=<renderId>` para invalidar cache após re-render.
+- **Composição dos geradores**: `Fallback(Metered(Gemini), Metered(Anthropic))` — cada provedor medido individualmente (as duas tentativas aparecem em `llm_usage`). O fallback valida a saída do primário contra o schema antes de aceitar.
+- **Anthropic**: structured output via ferramenta `submit_storyboard` (`input_schema` = JSON Schema do template) com `tool_choice: auto` (compatível com extended thinking); se vier texto, o JSON é extraído. `cache_control: ephemeral` no system prompt e na ferramenta (prompt caching).
+- **Gemini**: `generationConfig.responseMimeType=application/json` + `responseJsonSchema`; chave no header `x-goog-api-key` (nunca na URL). Tokens de "thinking" contados como saída.
+- ⚠️ **A validar com chaves reais**: os formatos das APIs foram implementados e testados contra servidores fake; a documentação mais recente do Gemini também mostra `generationConfig.responseFormat`. Confirmar nomes de campo e IDs de modelo (`GEMINI_MODEL`, `ANTHROPIC_MODEL`) na primeira execução real.
+- **Provedor `fixture`** (`STORYBOARD_PROVIDER=fixture`): desenvolvimento e testes de ponta a ponta sem custo.
+- **Storyboard worker como goroutines da API**: `STORYBOARD_WORKERS` (padrão 2) loops, acordados por `LISTEN/NOTIFY` com polling de segurança. Falha do LLM vira `FAILED` no use case; erros de infraestrutura usam o retry/backoff da fila e, esgotados, marcam o job como `FAILED`.
+- **Manutenção da fila** (reclaim de tarefas abandonadas, de qualquer tipo) roda só na API, a cada minuto.
+- **Assets permitidos ao LLM** fixos no system prompt (`assets/logo.png`, `assets/product-placeholder.png`) até existir upload de assets.

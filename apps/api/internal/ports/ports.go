@@ -88,6 +88,23 @@ type GenerateOutput struct {
 	OutputTokens int
 }
 
+// LLMUsage registra o consumo de uma chamada ao LLM (métrica de custo por job).
+type LLMUsage struct {
+	JobID        domain.JobID
+	Model        string
+	InputTokens  int
+	OutputTokens int
+	CostUSD      float64
+	Duration     time.Duration
+	Success      bool
+	Error        string
+}
+
+// LLMUsageRecorder persiste métricas de uso do LLM.
+type LLMUsageRecorder interface {
+	Record(ctx context.Context, u LLMUsage) error
+}
+
 // StoryboardGenerator gera o roteiro a partir do prompt (LLM).
 type StoryboardGenerator interface {
 	Generate(ctx context.Context, in GenerateInput) (GenerateOutput, error)

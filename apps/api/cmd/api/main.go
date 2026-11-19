@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"sync"
 	"syscall"
 	"time"
 
@@ -19,7 +21,9 @@ import (
 	"github.com/gahmorais/pipeline-video-gen/apps/api/internal/adapters/postgres"
 	"github.com/gahmorais/pipeline-video-gen/apps/api/internal/adapters/schema"
 	"github.com/gahmorais/pipeline-video-gen/apps/api/internal/adapters/storage"
+	"github.com/gahmorais/pipeline-video-gen/apps/api/internal/adapters/worker"
 	"github.com/gahmorais/pipeline-video-gen/apps/api/internal/application"
+	"github.com/gahmorais/pipeline-video-gen/apps/api/internal/ports"
 )
 
 type config struct {
@@ -28,6 +32,8 @@ type config struct {
 	MediaDir      string
 	InternalToken string
 	CORSOrigin    string
+	// StoryboardWorkers é o número de gerações de roteiro em paralelo.
+	StoryboardWorkers int
 }
 
 func loadConfig() (config, error) {
@@ -37,6 +43,11 @@ func loadConfig() (config, error) {
 		MediaDir:      envOr("MEDIA_DIR", "media"),
 		InternalToken: os.Getenv("INTERNAL_TOKEN"),
 		CORSOrigin:    envOr("CORS_ORIGIN", "http://localhost:3000"),
+	}
+	if n, err := strconv.Atoi(envOr("STORYBOARD_WORKERS", "2")); err != nil || n <= 0 {
+		return cfg, fmt.Errorf("STORYBOARD_WORKERS inválido")
+	} else {
+		cfg.StoryboardWorkers = n
 	}
 	var missing []string
 	if cfg.DatabaseURL == "" {
@@ -71,6 +82,10 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	llmCfg, err := loadLLMConfig(os.Getenv)
+	if err != nil {
+		return err
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -93,14 +108,43 @@ func run(logger *slog.Logger) error {
 	}
 	broker := events.NewBroker()
 
+	generator, err := buildGenerator(llmCfg, catalog, postgres.NewUsageRecorder(db), logger)
+	if err != nil {
+		return fmt.Errorf("llm: %w", err)
+	}
+	logger.Info("provedor de roteiro", "provider", llmCfg.Provider)
+
 	svc := application.NewService(application.Deps{
-		UoW:     postgres.NewUnitOfWork(db),
-		Catalog: catalog,
-		Events:  broker,
-		IDs:     ids.Random{},
-		Clock:   ids.SystemClock{},
-		// Generator e o storyboard worker são ligados na etapa 9.
+		UoW:       postgres.NewUnitOfWork(db),
+		Generator: generator,
+		Catalog:   catalog,
+		Events:    broker,
+		IDs:       ids.Random{},
+		Clock:     ids.SystemClock{},
 	})
+
+	// Workers em goroutines: roteiro (LLM, I/O-bound) e manutenção da fila.
+	queue := postgres.NewQueue(db)
+	listener, err := postgres.NewListener(cfg.DatabaseURL, ports.TaskGenerateStoryboard, logger)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+	hostname, _ := os.Hostname()
+	var workers sync.WaitGroup
+	workers.Add(2)
+	go func() {
+		defer workers.Done()
+		worker.NewStoryboardWorker(queue, svc, listener, worker.StoryboardConfig{
+			WorkerID:    "storyboard@" + hostname,
+			Concurrency: cfg.StoryboardWorkers,
+		}, logger).Run(ctx)
+	}()
+	go func() {
+		defer workers.Done()
+		worker.Maintenance{Queue: queue, Interval: time.Minute, StaleAfter: 5 * time.Minute, Logger: logger}.Run(ctx)
+	}()
+	defer workers.Wait() // graceful: aguarda tarefas em andamento
 
 	server, err := httpapi.NewServer(svc, broker, media, httpapi.Config{
 		InternalToken: cfg.InternalToken,

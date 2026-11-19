@@ -40,7 +40,7 @@ func setupDB(t *testing.T) (*sql.DB, string) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { db.Close() })
-	if _, err := db.ExecContext(ctx, `DROP TABLE IF EXISTS task_queue, video_jobs, schema_migrations CASCADE`); err != nil {
+	if _, err := db.ExecContext(ctx, `DROP TABLE IF EXISTS llm_usage, task_queue, video_jobs, schema_migrations CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	if err := postgres.Migrate(ctx, db); err != nil {
@@ -84,8 +84,8 @@ func TestMigrateIsIdempotent(t *testing.T) {
 	}
 	var n int
 	_ = db.QueryRow(`SELECT count(*) FROM schema_migrations`).Scan(&n)
-	if n != 1 {
-		t.Fatalf("esperado 1 migração registrada, obtido %d", n)
+	if n != 2 {
+		t.Fatalf("esperado 2 migrações registradas, obtido %d", n)
 	}
 }
 
@@ -494,3 +494,27 @@ func (s *seqIDs) NewRenderID() domain.RenderID {
 type clock struct{}
 
 func (clock) Now() time.Time { return time.Now().UTC().Truncate(time.Microsecond) }
+
+func TestUsageRecorder(t *testing.T) {
+	db, _ := setupDB(t)
+	createJob(t, postgres.NewUnitOfWork(db), newJob(t, "job-u"))
+	rec := postgres.NewUsageRecorder(db)
+	ctx := context.Background()
+	for _, u := range []ports.LLMUsage{
+		{JobID: "job-u", Model: "gemini", InputTokens: 1000, OutputTokens: 500, CostUSD: 0.0123, Duration: 1500 * time.Millisecond, Success: false, Error: "schema"},
+		{JobID: "job-u", Model: "opus", InputTokens: 1000, OutputTokens: 500, CostUSD: 0.014, Duration: 3 * time.Second, Success: true},
+	} {
+		if err := rec.Record(ctx, u); err != nil {
+			t.Fatal(err)
+		}
+	}
+	total, err := rec.JobCostUSD(ctx, "job-u")
+	if err != nil || total < 0.02629 || total > 0.02631 {
+		t.Fatalf("custo total=%v err=%v", total, err)
+	}
+	var failures int
+	_ = db.QueryRow(`SELECT count(*) FROM llm_usage WHERE job_id = 'job-u' AND NOT success AND error = 'schema'`).Scan(&failures)
+	if failures != 1 {
+		t.Fatalf("falhas registradas: %d", failures)
+	}
+}
