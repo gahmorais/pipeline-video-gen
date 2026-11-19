@@ -58,7 +58,7 @@ Postgres ──── estado + fila (SELECT ... FOR UPDATE SKIP LOCKED + LISTEN/
 | Frontend | Next.js + `@remotion/player` |
 | Banco / fila | PostgreSQL |
 | Storage | Filesystem local (`./media`), servido pela API com `http.ServeContent` (suporta Range/seek) |
-| Validação | Zod 4 (TS) → JSON Schema gerado com `z.toJSONSchema` → `santhosh-tekuri/jsonschema` (Go) |
+| Validação | Zod 4 (TS) → JSON Schema gerado com `z.toJSONSchema` → `santhosh-tekuri/jsonschema/v5` (Go, sem dependências transitivas) |
 | LLM | Gemini Flash (padrão) + Claude Opus (`claude-opus-5-5`, fallback/premium) — confirmar IDs atuais dos modelos |
 
 ## Estrutura do monorepo
