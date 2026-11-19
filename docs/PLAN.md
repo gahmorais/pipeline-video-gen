@@ -15,7 +15,7 @@ Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
 | 5 | `apps/api` — portas e use cases | `ports/` + `application/` (CreateVideo, GenerateStoryboard, UpdateStoryboard, RequestRender, ReportRenderProgress, CompleteRender, FailJob, RetryJob) | `go test` com fakes das portas | ✅ |
 | 6 | Validação de schema em Go | Adapter que valida storyboard contra `storyboard.schema.json` (embutido) | `go test` com as mesmas fixtures do pacote TS | ✅ |
 | 7 | Postgres: repositório + fila | Migrations, `VideoJobRepository`, `JobQueue` (SKIP LOCKED, reclaim de jobs travados, LISTEN/NOTIFY) | Testes de integração contra Postgres real | ✅ |
-| 8 | HTTP + SSE | Handlers REST, SSE de eventos por job, endpoints internos para workers, servir MP4 (`http.ServeContent`) | `httptest` + teste e2e da API com Postgres | ⏳ |
+| 8 | HTTP + SSE | Handlers REST, SSE de eventos por job, endpoints internos para workers, servir MP4 (`http.ServeContent`) | `httptest` + teste e2e da API com Postgres | ✅ |
 | 9 | LLM adapters | `GeminiStoryboardGenerator`, `AnthropicStoryboardGenerator`, `FallbackGenerator`, `MeteredGenerator`; storyboard worker | `go test` com servidores HTTP fake simulando os provedores | ⏳ |
 | 10 | Render worker conectado | Adapter de fila Postgres + reporter HTTP para a API; loop de consumo | Teste e2e: job criado via API → render → `COMPLETED` | ⏳ |
 | 11 | Frontend | Next.js: prompt → preview no `Player` → edição → render → progresso SSE → download | Build + teste manual | ⏳ |
@@ -52,3 +52,8 @@ Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
 - **`lib/pq` + `database/sql`** em vez de `pgx`, e testes de integração com `DATABASE_URL` em vez de testcontainers: ambos sem dependências de `golang.org/x/*` (indisponível no ambiente de desenvolvimento remoto). `lib/pq` suporta `LISTEN/NOTIFY` via `pq.Listener`.
 - **Contrato da fila (`task_queue`)** compartilhado por API (produtor), storyboard worker (Go) e render worker (Node): `kind`, `job_id`, `render_id`, `status` (`pending`/`running`/`done`/`dead`), `attempts`/`max_attempts`, `run_after` (backoff), `locked_at`/`locked_by` (reclaim). Índice único parcial impede tarefas ativas duplicadas (enqueue idempotente).
 - **NOTIFY dentro da transação**: entregue só no commit — workers nunca acordam para trabalho desfeito. Notificação é só uma dica; workers também fazem polling.
+- **HTTP só com stdlib** (`net/http`, padrões de rota do Go 1.22+). Erros no formato RFC 9457 (`application/problem+json`); validação de schema → 422 com `issues` por caminho.
+- **Endpoints internos dos workers** (`/internal/videos/{id}/renders/{renderId}/start|progress|complete|fail`) protegidos por `Authorization: Bearer $INTERNAL_TOKEN` (comparação em tempo constante). `complete` confere que o arquivo existe antes de marcar `COMPLETED`.
+- **SSE envia snapshots completos** (DTO inteiro) a cada mudança, não deltas: o cliente só substitui o estado. O broker coalesce sinais e o handler relê o job; assina antes da leitura inicial para não perder mudanças. O servidor **não** fecha o stream em estados finais (o `EventSource` reconectaria em loop).
+- **Broker em memória**: adequado a uma instância da API (cenário local). Múltiplas instâncias exigiriam fan-out via `LISTEN/NOTIFY`.
+- **Mídia via `http.ServeContent`** (Range/seek); `mediaUrl` inclui `?r=<renderId>` para invalidar cache após re-render.

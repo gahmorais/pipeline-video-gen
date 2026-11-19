@@ -4,6 +4,7 @@ package ports
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/gahmorais/pipeline-video-gen/apps/api/internal/domain"
@@ -113,6 +114,19 @@ type TemplateCatalog interface {
 // falhas não desfazem a operação.
 type EventPublisher interface {
 	Publish(ctx context.Context, events []domain.Event)
+}
+
+// MediaReader lê arquivos de mídia gerados pelo render worker.
+type MediaReader interface {
+	// Open devolve o conteúdo (com seek, para Range requests), tamanho e data de modificação.
+	Open(ctx context.Context, key string) (MediaFile, error)
+}
+
+// MediaFile é um arquivo de mídia aberto. Close deve ser chamado pelo consumidor.
+type MediaFile interface {
+	io.ReadSeekCloser
+	Size() int64
+	ModTime() time.Time
 }
 
 // IDGenerator gera identificadores únicos.
