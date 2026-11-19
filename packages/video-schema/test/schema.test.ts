@@ -123,3 +123,22 @@ describe("JSON Schema gerado", () => {
     expect(schema.additionalProperties).toBe(false);
   });
 });
+
+describe("exemplos em docs/examples", () => {
+  // Convenção de nome: <nome>.<templateId>.json
+  const examplesDir = join(here, "..", "..", "..", "docs", "examples");
+  const files = readdirSync(examplesDir).filter((f) => f.endsWith(".json"));
+
+  it("existem exemplos", () => {
+    expect(files.length).toBeGreaterThan(0);
+  });
+
+  it.each(files)("%s é válido para o template do nome do arquivo", (file) => {
+    const templateId = file.split(".").at(-2) ?? "";
+    expect(isTemplateId(templateId)).toBe(true);
+    if (isTemplateId(templateId)) {
+      const result = validateStoryboard(templateId, readJson(join(examplesDir, file)));
+      expect(result).toMatchObject({ success: true });
+    }
+  });
+});

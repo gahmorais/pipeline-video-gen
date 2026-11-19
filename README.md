@@ -37,13 +37,25 @@ cd apps/web
 pnpm dev   # http://localhost:3000 (NEXT_PUBLIC_API_URL padrão: http://localhost:8080)
 ```
 
-Sem chave de LLM, use `STORYBOARD_PROVIDER=fixture` e `STORYBOARD_FIXTURE=../../packages/video-schema/fixtures/valid/promo-basic.json` na API.
+Sem chave de LLM, use `STORYBOARD_PROVIDER=fixture` e `STORYBOARD_FIXTURES=promo=../../packages/video-schema/fixtures/valid/promo-basic.json,app-promo=../../packages/video-schema/fixtures/app-promo/valid/basic.json` na API.
+
+## Templates
+
+| Template | Formato | Cenas | Uso |
+|---|---|---|---|
+| `promo` v1 | 1920×1080 (16:9) | `title`, `product`, `cta` | Ofertas de varejo |
+| `app-promo` v1 | 1080×1920 (9:16) | `title`, `clip` (gameplay), `feature`, `cta` (lojas) + trilha | Divulgação de apps/jogos em Reels, TikTok e Shorts |
+
+Exemplo pronto: roteiro de 60 s do Retro 99 em [`docs/examples`](./docs/examples/README.md), com a lista de assets e como gravar o gameplay.
+
+Novo template = nova versão de schema (`packages/video-schema`) + composição registrada (`packages/compositions/src/registry.ts`) + guia de prompt (`apps/api/internal/adapters/llm/prompt.go`). Versões antigas são mantidas para re-render reprodutível.
 
 ## Fluxo via API
 
 ```bash
 API=http://localhost:8080
 ID=$(curl -s -X POST $API/videos -d '{"prompt":"ofertas de leitores de código de barras","templateId":"promo"}' | jq -r .id)
+# ou templateId "app-promo" para vídeo vertical de divulgação de app
 curl -N $API/videos/$ID/events                                     # acompanha o estado (SSE)
 curl -X PATCH $API/videos/$ID/storyboard -d @meu-roteiro.json       # opcional: editar o roteiro
 curl -X POST -H "Idempotency-Key: $(uuidgen | tr A-Z a-z)" $API/videos/$ID/render

@@ -82,9 +82,30 @@ Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
 - **Rate limit** em memória (token bucket por rota+IP), adequado a uma instância local; sem confiar em `X-Forwarded-For`.
 - `GET /metrics` não exige autenticação (uso local). Se a API for exposta na rede, proteger a rota.
 
+## Template `app-promo` v1 (vídeo vertical de divulgação de app)
+
+| Etapa | Entregável | Validação | Status |
+|---|---|---|---|
+| A | Schema Zod `app-promo` v1, registro genérico de templates, fixtures, JSON Schema | Vitest + paridade Go/TS das fixtures | ✅ |
+| B | Composição `AppPromo` 1080×1920 (clip com `OffthreadVideo`, feature, cta, trilha com fades) | Stills por cena + MP4 real (270 frames, AAC, fades medidos) | ✅ |
+| C | Prompt do LLM por template, fixture por template, frontend multi-template (Player por registro, editor JSON) | Testes Go/TS + e2e pela UI (app-promo) + regressão promo | ✅ |
+| D | Exemplo Retro 99 (60 s) em `docs/examples` | Teste valida exemplos; render real 60 s (1800 frames) | ✅ |
+
+Decisões:
+- **Template novo, não alteração do `promo`**: renders antigos continuam reprodutíveis. Tipos comuns (cor, referência de asset) e helpers de cena foram extraídos para `common`/`shared` sem mudar o schema/saída do `promo`.
+- **Registro de composições compartilhado** (`compositions` em `@videogen/compositions`): Root (Studio/render) e Player (web) resolvem o mesmo componente e dimensões por `templateId`.
+- **Clipes silenciados; trilha global sem `loop`**: com `loop`, o frame passado ao callback de `volume` reinicia a cada volta e o fade-out se perde (medido). Por isso a trilha deve durar ≥ o vídeo.
+- **Clipe mais curto que `startSec + durationSec` congela no último frame** (comportamento do `OffthreadVideo`, verificado). Ver checklist de assets em `docs/examples/README.md`.
+- **Área segura vertical** (topo 220 px, base 420 px) para não colidir com a UI de Reels/TikTok/Shorts.
+- **Lojas como texto** ("Google Play", "App Store"), sem reproduzir selos/logotipos oficiais.
+- **Editor JSON genérico** para templates sem formulário dedicado, validado pelo mesmo schema (issues por caminho + erro de sintaxe).
+- **Prompt do LLM por template** (`templateGuides`): papel, assets permitidos e estrutura recomendada (gancho nos 3 primeiros segundos no `app-promo`).
+- **Medição**: 60 s vertical renderizou em ~187 s neste ambiente (2 vCPU, concurrency 2) ≈ 3,1 s de render por segundo de vídeo.
+
 ## Próximos passos sugeridos
 
 1. Validar os adapters de LLM com chaves reais (nomes de campos de structured output e IDs de modelo).
 2. Calibrar `RENDER_CONCURRENCY` no M2 com `npx remotion benchmark`.
 3. Upload de assets (logo/produtos) com validação de MIME e tamanho, liberando o LLM para referenciá-los.
-4. Novos templates (nova versão de schema + composição), mantendo os antigos para re-render reprodutível.
+4. Formulário dedicado para o `app-promo` (hoje: editor JSON) e upload de clipes/trilha pela UI.
+5. Validar no worker a duração dos clipes e da trilha (ex.: `ffprobe`) antes do render, falhando cedo em vez de congelar o vídeo.

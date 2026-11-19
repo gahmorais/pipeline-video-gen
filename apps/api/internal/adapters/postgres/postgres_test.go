@@ -544,7 +544,8 @@ func TestMetricsSummaryAndMediaReferences(t *testing.T) {
 	createJob(t, uow, failed)
 	_ = postgres.NewUsageRecorder(db).Record(ctx, ports.LLMUsage{JobID: "done", Model: "gemini", InputTokens: 100, OutputTokens: 50, CostUSD: 0.01, Duration: 2 * time.Second, Success: true})
 
-	m, err := postgres.NewMetricsReader(db).Summary(ctx, time.Now().Add(-time.Hour))
+	// Janela relativa ao t0 fixo dos jobs (não ao relógio): o teste não depende da hora em que roda.
+	m, err := postgres.NewMetricsReader(db).Summary(ctx, t0.Add(-time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}

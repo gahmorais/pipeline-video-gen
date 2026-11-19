@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "brand": { "appName": "Retro 99", "primary": "#9BBC0F", "logoUrl": "assets/retro99/icone.png" },
+  "soundtrack": { "src": "assets/retro99/trilha-chiptune.mp3", "volume": 0.6 },
+  "scenes": [
+    { "type": "clip", "videoUrl": "assets/retro99/gameplay-corrida.mp4", "startSec": 0, "caption": "Lembra disso?", "durationSec": 3 },
+    { "type": "title", "text": "O mini game 99 in 1 voltou", "durationSec": 4 },
+    { "type": "clip", "videoUrl": "assets/retro99/gameplay-corrida.mp4", "startSec": 3, "caption": "Corrida: desvie e acelere", "durationSec": 5 },
+    { "type": "clip", "videoUrl": "assets/retro99/gameplay-blocos.mp4", "startSec": 0, "caption": "Blocos: encaixe as peças", "durationSec": 5 },
+    { "type": "clip", "videoUrl": "assets/retro99/gameplay-cobrinha.mp4", "startSec": 0, "caption": "Cobrinha: coma e cresça", "durationSec": 5 },
+    { "type": "clip", "videoUrl": "assets/retro99/gameplay-tanque.mp4", "startSec": 0, "caption": "Tanque: defenda a base", "durationSec": 5 },
+    { "type": "clip", "videoUrl": "assets/retro99/gameplay-tijolos.mp4", "startSec": 0, "caption": "Quebra-tijolos: não deixe cair", "durationSec": 5 },
+    { "type": "clip", "videoUrl": "assets/retro99/gameplay-tiro.mp4", "startSec": 0, "caption": "Tiro ao alvo: mire e acerte", "durationSec": 5 },
+    { "type": "feature", "name": "Vários jogos em 1", "tagline": "Todos os clássicos num só app", "imageUrl": "assets/retro99/tela-menu.png", "durationSec": 5 },
+    { "type": "feature", "name": "Visual LCD repaginado", "tagline": "Clássico por fora, moderno por dentro", "imageUrl": "assets/retro99/tela-lcd.png", "durationSec": 5 },
+    { "type": "title", "text": "Qual era o seu favorito?", "durationSec": 5 },
+    { "type": "cta", "text": "Baixe grátis", "stores": ["google-play"], "durationSec": 8 }
+  ]
+}

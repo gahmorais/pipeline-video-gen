@@ -99,6 +99,7 @@ docker-compose.yml              # postgres
 
 - Definido **uma vez** em `packages/video-schema` com Zod.
 - Usado em `<Composition schema={...}>` (Studio gera formulário e valida props).
+- Um schema por template e versão (`promo.v1`, `app-promo.v1`); o registro `templates` liga id → versão → composição.
 - `pnpm --filter @videogen/video-schema generate` gera `promo.v1.schema.json` (via `z.toJSONSchema`, Zod 4 — mesma versão usada pelo Remotion), que é:
   - usado pelo Go para validar a saída do LLM e os PATCHs do usuário;
   - enviado ao LLM como structured output / tool schema.
@@ -122,6 +123,17 @@ export const PromoSchema = z.object({
   ])).min(1).max(12),
 });
 ```
+
+### Templates atuais
+
+| Template | Composição | Formato | Cenas |
+|---|---|---|---|
+| `promo` v1 | `Promo` | 1920×1080 | `title`, `product`, `cta` |
+| `app-promo` v1 | `AppPromo` | 1080×1920 (vertical) | `title`, `clip`, `feature`, `cta` + `soundtrack` opcional |
+
+- Fixtures: `packages/video-schema/fixtures/` (promo na raiz; demais em `fixtures/<templateId>/`). Exemplos em `docs/examples/<nome>.<templateId>.json` (validados nos testes).
+- Novo template: schema versionado + entrada em `templates` (video-schema) + `compositions` (registry das composições) + `<Composition>` no Root + guia em `templateGuides` (prompt do LLM). Nunca editar um template publicado: criar nova versão.
+- `app-promo`: clipes via `<OffthreadVideo>` sempre `muted` (trilha global); trilha via `<Audio>` **sem `loop`** (o callback de `volume` reinicia a cada volta) — a trilha deve durar ≥ o vídeo; clipe mais curto que `startSec + durationSec` congela no último frame; conteúdo dentro de `VERTICAL_SAFE_AREA`.
 
 ## Máquina de estados do VideoJob
 
