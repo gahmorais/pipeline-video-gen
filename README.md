@@ -30,6 +30,13 @@ set -a && source .env && set +a
 pnpm worker
 ```
 
+Frontend (Next.js) — em outro terminal:
+
+```bash
+cd apps/web
+pnpm dev   # http://localhost:3000 (NEXT_PUBLIC_API_URL padrão: http://localhost:8080)
+```
+
 Sem chave de LLM, use `STORYBOARD_PROVIDER=fixture` e `STORYBOARD_FIXTURE=../../packages/video-schema/fixtures/valid/promo-basic.json` na API.
 
 ## Fluxo via API

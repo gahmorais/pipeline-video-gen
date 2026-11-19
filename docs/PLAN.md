@@ -18,7 +18,7 @@ Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
 | 8 | HTTP + SSE | Handlers REST, SSE de eventos por job, endpoints internos para workers, servir MP4 (`http.ServeContent`) | `httptest` + teste e2e da API com Postgres | ✅ |
 | 9 | LLM adapters | `GeminiStoryboardGenerator`, `AnthropicStoryboardGenerator`, `FallbackGenerator`, `MeteredGenerator`; storyboard worker | `go test` com servidores HTTP fake simulando os provedores | ✅ (validar com chaves reais) |
 | 10 | Render worker conectado | Adapter de fila Postgres + reporter HTTP para a API; loop de consumo | Teste e2e: job criado via API → render → `COMPLETED` | ✅ |
-| 11 | Frontend | Next.js: prompt → preview no `Player` → edição → render → progresso SSE → download | Build + teste manual | ⏳ |
+| 11 | Frontend | Next.js: prompt → preview no `Player` → edição → render → progresso SSE → download | Build + teste manual | ✅ |
 | 12 | Operação | Logs estruturados com `job_id`, métricas, limpeza de `./media`, rate limit/quotas | Testes unitários + checklist | ⏳ |
 
 ## Decisões de design registradas durante a implementação
@@ -70,3 +70,9 @@ Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
 - **Retry só na fila** no modo worker (sem `withRetry` em processo), evitando retentativas multiplicadas.
 - **Um render por vez por worker** (`WorkerLoop`); SIGINT/SIGTERM aguardam o render em andamento.
 - **E2E validado**: API + storyboard worker (fixture) + render worker (Remotion real) → MP4 H.264 1080p30 servido com Range.
+- **Frontend com a mesma composição do render**: o `<Player>` usa `Promo` de `@videogen/compositions` — o preview é exatamente o que será renderizado, sem custo. Assets copiados para `public/` (`sync-assets`) para que `staticFile()` resolva igual no Player e no worker.
+- **Editor com rascunho local + validação Zod no cliente** (mesmo schema do servidor): preview em tempo real a cada alteração; "Salvar" só habilita com rascunho válido; issues 422 do servidor exibidas por cena. O rascunho não é sobrescrito por snapshots SSE enquanto houver edição não salva.
+- **Idempotency key por intenção de render** (`crypto.randomUUID`), reutilizada em reenvios até a API confirmar.
+- **SSE com snapshots versionados**: o hook ignora snapshots mais antigos que o estado atual (respostas HTTP e SSE fora de ordem).
+- **XSS**: todo texto vindo do LLM/usuário é renderizado pelo React (escapado); nenhum `dangerouslySetInnerHTML`.
+- **E2E da UI validado com Chrome headless** (puppeteer): home → roteiro → edição inválida bloqueada → salvar → renderizar → progresso → vídeo pronto; o MP4 final contém a edição.
