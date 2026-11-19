@@ -1,3 +1,3 @@
-export * from "./promo.js";
-export * from "./duration.js";
-export * from "./registry.js";
+export * from "./promo";
+export * from "./duration";
+export * from "./registry";

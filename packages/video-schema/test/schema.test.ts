@@ -9,8 +9,8 @@ import {
   sceneFrames,
   secondsToFrames,
   validateStoryboard,
-} from "../src/index.js";
-import { renderSchema, schemaFileName } from "../scripts/generate-json-schema.js";
+} from "../src/index";
+import { renderSchema, schemaFileName } from "../scripts/generate-json-schema";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtures = join(here, "..", "fixtures");

@@ -1,4 +1,4 @@
-import type { Scene } from "./promo.js";
+import type { Scene } from "./promo";
 
 /**
  * Converte segundos em frames. Arredonda para garantir frames inteiros

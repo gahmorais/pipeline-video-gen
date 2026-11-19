@@ -9,7 +9,7 @@ Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
 |---|---|---|---|---|
 | 0 | Bootstrap do monorepo | `CLAUDE.md`, plano, `.gitignore`, pnpm workspace, `docker-compose.yml` (Postgres) | `pnpm install` ok; `docker compose config` ok | ✅ |
 | 1 | `packages/video-schema` | Schema Zod `Promo` v1, tipos, fixtures, script que gera `storyboard.schema.json`, helper `totalDurationSec` | Vitest: fixtures válidas passam, inválidas falham (limites); JSON Schema gerado e determinístico | ✅ |
-| 2 | `packages/compositions` | Composição Remotion `Promo` (cenas title/product/cta em `<Series>`), `calculateMetadata` a partir de `durationSec`, Root para o Studio | `tsc --noEmit`; Vitest de cálculo de frames; `renderStill` de um frame de cada cena | ⏳ |
+| 2 | `packages/compositions` | Composição Remotion `Promo` (cenas title/product/cta em `<Series>`), `calculateMetadata` a partir de `durationSec`, Root para o Studio | `tsc --noEmit`; Vitest de cálculo de frames; `renderStill` de um frame de cada cena | ✅ |
 | 3 | `apps/render-worker` (CLI) | Hexagonal: ports (`Renderer`, `MediaStorage`), use case `RenderVideo`, adapters `remotion-local` (bundle único) e `localfs`; CLI `render <fixture.json>` | Vitest do use case com fakes (validação, idempotência, progresso); render real de fixture curta gerando MP4 válido (ffprobe) | ⏳ |
 | 4 | `apps/api` — domínio | Agregado `VideoJob`, `JobStatus`, máquina de estados, erros de domínio, eventos | `go test ./internal/domain/...` table-driven com todas as transições válidas/inválidas | ⏳ |
 | 5 | `apps/api` — portas e use cases | `ports/` + `application/` (CreateVideo, GenerateStoryboard, UpdateStoryboard, RequestRender, ReportRenderProgress, CompleteRender, FailJob, RetryJob) | `go test` com fakes das portas | ⏳ |
@@ -28,3 +28,6 @@ Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
 - **JSON Schema gerado é commitado em dois lugares**: `packages/video-schema/schemas/` (canônico) e `apps/api/internal/adapters/schema/schemas/` (para `go:embed`, que não acessa arquivos fora do módulo Go). Um teste falha se o arquivo commitado divergir do Zod.
 - **Schemas `.strict()`**: propriedades extras são rejeitadas (o LLM não pode injetar campos como `durationInFrames`).
 - **Frames por cena arredondados individualmente**: `totalDurationInFrames` = soma dos frames de cada cena, garantindo que o total bate com as `<Series.Sequence>`.
+- **Imports relativos sem extensão** (`moduleResolution: Bundler`): o webpack do Remotion não resolve `./x.js` → `x.tsx`.
+- **`BROWSER_EXECUTABLE`** (opcional): caminho de um Chrome local quando o download do Chrome Headless Shell não for possível; nesse caso usa-se `chromeMode: "chrome-for-testing"`.
+- **`resolveAssetRef`** rejeita esquemas não-http (`javascript:`, `data:`, `file:`) e path traversal; referência inválida vira placeholder em vez de quebrar o render.

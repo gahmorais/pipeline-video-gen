@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { templates, toJsonSchema, type TemplateId } from "../src/index.js";
+import { templates, toJsonSchema, type TemplateId } from "../src/index";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const packageRoot = join(here, "..");

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PROMO_SCHEMA_VERSION, PromoSchema } from "./promo.js";
+import { PROMO_SCHEMA_VERSION, PromoSchema } from "./promo";
 
 /**
  * Registro de templates. A chave (templateId@version) é gravada em cada job
