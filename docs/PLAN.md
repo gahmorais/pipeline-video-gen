@@ -19,7 +19,7 @@ Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
 | 9 | LLM adapters | `GeminiStoryboardGenerator`, `AnthropicStoryboardGenerator`, `FallbackGenerator`, `MeteredGenerator`; storyboard worker | `go test` com servidores HTTP fake simulando os provedores | ✅ (validar com chaves reais) |
 | 10 | Render worker conectado | Adapter de fila Postgres + reporter HTTP para a API; loop de consumo | Teste e2e: job criado via API → render → `COMPLETED` | ✅ |
 | 11 | Frontend | Next.js: prompt → preview no `Player` → edição → render → progresso SSE → download | Build + teste manual | ✅ |
-| 12 | Operação | Logs estruturados com `job_id`, métricas, limpeza de `./media`, rate limit/quotas | Testes unitários + checklist | ⏳ |
+| 12 | Operação | Logs estruturados com `job_id`, métricas, limpeza de `./media`, rate limit/quotas | Testes unitários + checklist | ✅ |
 
 ## Decisões de design registradas durante a implementação
 
@@ -76,3 +76,15 @@ Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
 - **SSE com snapshots versionados**: o hook ignora snapshots mais antigos que o estado atual (respostas HTTP e SSE fora de ordem).
 - **XSS**: todo texto vindo do LLM/usuário é renderizado pelo React (escapado); nenhum `dangerouslySetInnerHTML`.
 - **E2E da UI validado com Chrome headless** (puppeteer): home → roteiro → edição inválida bloqueada → salvar → renderizar → progresso → vídeo pronto; o MP4 final contém a edição.
+- **Métricas como read model** (`GET /metrics`): consultas SQL diretas (CQRS-lite), sem passar pelo agregado. A fila registra `first_claimed_at`/`last_claimed_at`/`finished_at` (migração 0003) — tempo em fila = primeira reserva − criação; processamento = conclusão − última reserva.
+- **ETA na UI** = (1 − progresso) × duração do vídeo × `renderSecondsPerVideoSecond` (histórico real dos últimos 7 dias). Sem histórico, não exibe estimativa.
+- **Limpeza de mídia consciente do domínio**: nunca apaga o `output_key` atual de um job; idades mínimas evitam corrida com render recém-concluído ainda não registrado.
+- **Rate limit** em memória (token bucket por rota+IP), adequado a uma instância local; sem confiar em `X-Forwarded-For`.
+- `GET /metrics` não exige autenticação (uso local). Se a API for exposta na rede, proteger a rota.
+
+## Próximos passos sugeridos
+
+1. Validar os adapters de LLM com chaves reais (nomes de campos de structured output e IDs de modelo).
+2. Calibrar `RENDER_CONCURRENCY` no M2 com `npx remotion benchmark`.
+3. Upload de assets (logo/produtos) com validação de MIME e tamanho, liberando o LLM para referenciá-los.
+4. Novos templates (nova versão de schema + composição), mantendo os antigos para re-render reprodutível.

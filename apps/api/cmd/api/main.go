@@ -34,6 +34,11 @@ type config struct {
 	CORSOrigin    string
 	// StoryboardWorkers é o número de gerações de roteiro em paralelo.
 	StoryboardWorkers int
+	// Rate limits por IP (requisições por minuto).
+	CreatePerMinute float64
+	RenderPerMinute float64
+	// MediaOrphanRetention: idade mínima para apagar vídeos que não são mais o atual de nenhum job.
+	MediaOrphanRetention time.Duration
 }
 
 func loadConfig() (config, error) {
@@ -43,6 +48,16 @@ func loadConfig() (config, error) {
 		MediaDir:      envOr("MEDIA_DIR", "media"),
 		InternalToken: os.Getenv("INTERNAL_TOKEN"),
 		CORSOrigin:    envOr("CORS_ORIGIN", "http://localhost:3000"),
+	}
+	var err error
+	if cfg.CreatePerMinute, err = strconv.ParseFloat(envOr("RATE_LIMIT_CREATE_PER_MIN", "10"), 64); err != nil || cfg.CreatePerMinute <= 0 {
+		return cfg, fmt.Errorf("RATE_LIMIT_CREATE_PER_MIN inválido")
+	}
+	if cfg.RenderPerMinute, err = strconv.ParseFloat(envOr("RATE_LIMIT_RENDER_PER_MIN", "6"), 64); err != nil || cfg.RenderPerMinute <= 0 {
+		return cfg, fmt.Errorf("RATE_LIMIT_RENDER_PER_MIN inválido")
+	}
+	if cfg.MediaOrphanRetention, err = time.ParseDuration(envOr("MEDIA_ORPHAN_RETENTION", "168h")); err != nil || cfg.MediaOrphanRetention < time.Hour {
+		return cfg, fmt.Errorf("MEDIA_ORPHAN_RETENTION inválido (mínimo 1h)")
 	}
 	if n, err := strconv.Atoi(envOr("STORYBOARD_WORKERS", "2")); err != nil || n <= 0 {
 		return cfg, fmt.Errorf("STORYBOARD_WORKERS inválido")
@@ -132,7 +147,17 @@ func run(logger *slog.Logger) error {
 	defer listener.Close()
 	hostname, _ := os.Hostname()
 	var workers sync.WaitGroup
-	workers.Add(2)
+	workers.Add(3)
+	go func() {
+		defer workers.Done()
+		worker.MediaCleanup{
+			Files:        media,
+			References:   postgres.NewMediaReferences(db),
+			PartialAfter: 24 * time.Hour,
+			OrphanAfter:  cfg.MediaOrphanRetention,
+			Logger:       logger,
+		}.Run(ctx, time.Hour)
+	}()
 	go func() {
 		defer workers.Done()
 		worker.NewStoryboardWorker(queue, svc, listener, worker.StoryboardConfig{
@@ -149,6 +174,9 @@ func run(logger *slog.Logger) error {
 	server, err := httpapi.NewServer(svc, broker, media, httpapi.Config{
 		InternalToken: cfg.InternalToken,
 		AllowedOrigin: cfg.CORSOrigin,
+		CreateLimit:   &httpapi.RateLimit{PerMinute: cfg.CreatePerMinute, Burst: 3},
+		RenderLimit:   &httpapi.RateLimit{PerMinute: cfg.RenderPerMinute, Burst: 2},
+		Metrics:       postgres.NewMetricsReader(db),
 	}, logger)
 	if err != nil {
 		return err

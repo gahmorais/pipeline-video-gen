@@ -395,3 +395,64 @@ func (s *seqIDs) NewRenderID() domain.RenderID {
 type clock struct{}
 
 func (clock) Now() time.Time { return time.Now().UTC() }
+
+type fakeMetrics struct{ since time.Time }
+
+func (f *fakeMetrics) Summary(_ context.Context, since time.Time) (ports.MetricsSummary, error) {
+	f.since = since
+	return ports.MetricsSummary{Since: since, Jobs: map[string]int{"COMPLETED": 2}, Render: ports.RenderMetrics{Renders: 2, SecondsPerVideoSecond: 3.2}}, nil
+}
+
+func newEnvWith(t *testing.T, cfg httpapi.Config) *env {
+	t.Helper()
+	catalog, _ := schema.NewEmbeddedCatalog()
+	e := &env{store: memory.NewStore(), broker: events.NewBroker(), mediaDir: t.TempDir()}
+	e.svc = application.NewService(application.Deps{
+		UoW: e.store, Generator: fixtureGenerator{}, Catalog: catalog, Events: e.broker, IDs: &seqIDs{}, Clock: clock{},
+	})
+	media, _ := storage.NewLocalFS(e.mediaDir)
+	cfg.InternalToken = token
+	s, err := httpapi.NewServer(e.svc, e.broker, media, cfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.srv = httptest.NewServer(s.Handler())
+	t.Cleanup(e.srv.Close)
+	return e
+}
+
+func TestRateLimitOnCreate(t *testing.T) {
+	e := newEnvWith(t, httpapi.Config{CreateLimit: &httpapi.RateLimit{PerMinute: 1, Burst: 2}})
+	for i := 0; i < 2; i++ {
+		if resp, _ := e.do(t, "POST", "/videos", `{"prompt":"x","templateId":"promo"}`); resp.StatusCode != 201 {
+			t.Fatalf("requisição %d: %d", i, resp.StatusCode)
+		}
+	}
+	resp, body := e.do(t, "POST", "/videos", `{"prompt":"x","templateId":"promo"}`)
+	if resp.StatusCode != http.StatusTooManyRequests || body["type"] != "rate-limited" || resp.Header.Get("Retry-After") == "" {
+		t.Fatalf("esperado 429 com Retry-After, obtido %d %v", resp.StatusCode, body)
+	}
+	if resp, _ := e.do(t, "GET", "/healthz", ""); resp.StatusCode != 200 {
+		t.Fatal("rotas sem limite não devem ser afetadas")
+	}
+}
+
+func TestMetricsEndpoint(t *testing.T) {
+	m := &fakeMetrics{}
+	e := newEnvWith(t, httpapi.Config{Metrics: m})
+	resp, body := e.do(t, "GET", "/metrics?window=2h", "")
+	if resp.StatusCode != 200 || body["render"].(map[string]any)["renderSecondsPerVideoSecond"] != 3.2 {
+		t.Fatalf("metrics: %d %v", resp.StatusCode, body)
+	}
+	if d := time.Since(m.since); d < 2*time.Hour-time.Minute || d > 2*time.Hour+time.Minute {
+		t.Fatalf("janela incorreta: %v", d)
+	}
+	for _, bad := range []string{"abc", "-1h", "1000h"} {
+		if resp, _ := e.do(t, "GET", "/metrics?window="+bad, ""); resp.StatusCode != 400 {
+			t.Fatalf("window=%s: esperado 400, obtido %d", bad, resp.StatusCode)
+		}
+	}
+	if resp, _ := newEnv(t).do(t, "GET", "/metrics", ""); resp.StatusCode != 404 {
+		t.Fatal("sem MetricsReader a rota não existe")
+	}
+}

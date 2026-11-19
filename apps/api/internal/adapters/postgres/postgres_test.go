@@ -84,8 +84,8 @@ func TestMigrateIsIdempotent(t *testing.T) {
 	}
 	var n int
 	_ = db.QueryRow(`SELECT count(*) FROM schema_migrations`).Scan(&n)
-	if n != 2 {
-		t.Fatalf("esperado 2 migrações registradas, obtido %d", n)
+	if n != 3 {
+		t.Fatalf("esperado 3 migrações registradas, obtido %d", n)
 	}
 }
 
@@ -516,5 +516,58 @@ func TestUsageRecorder(t *testing.T) {
 	_ = db.QueryRow(`SELECT count(*) FROM llm_usage WHERE job_id = 'job-u' AND NOT success AND error = 'schema'`).Scan(&failures)
 	if failures != 1 {
 		t.Fatalf("falhas registradas: %d", failures)
+	}
+}
+
+func TestMetricsSummaryAndMediaReferences(t *testing.T) {
+	db, _ := setupDB(t)
+	uow := postgres.NewUnitOfWork(db)
+	ctx := context.Background()
+	q := postgres.NewQueue(db)
+
+	// Job concluído com storyboard de 6 s e render de ~12 s (2 s de render por s de vídeo).
+	sb, _ := domain.NewStoryboard([]byte(`{"scenes":[{"durationSec":2},{"durationSec":4}]}`))
+	done := newJob(t, "done")
+	_ = done.StartStoryboardGeneration(t0)
+	_ = done.AttachStoryboard(sb, t0)
+	_, _ = done.RequestRender("r1", t0)
+	_ = done.StartRendering("r1", t0)
+	_ = done.CompleteRender("r1", "done/r1.mp4", t0)
+	createJob(t, uow, done, ports.Task{Kind: ports.TaskRender, JobID: "done", RenderID: "r1"})
+	ct, _ := q.Claim(ctx, ports.TaskRender, "w")
+	_ = q.Complete(ctx, ct.ID)
+	_, _ = db.Exec(`UPDATE task_queue SET created_at = now() - interval '20 seconds',
+		first_claimed_at = now() - interval '15 seconds', last_claimed_at = now() - interval '12 seconds', finished_at = now()`)
+
+	failed := newJob(t, "failed")
+	_ = failed.Fail("boom", t0)
+	createJob(t, uow, failed)
+	_ = postgres.NewUsageRecorder(db).Record(ctx, ports.LLMUsage{JobID: "done", Model: "gemini", InputTokens: 100, OutputTokens: 50, CostUSD: 0.01, Duration: 2 * time.Second, Success: true})
+
+	m, err := postgres.NewMetricsReader(db).Summary(ctx, time.Now().Add(-time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Jobs["COMPLETED"] != 1 || m.Jobs["FAILED"] != 1 {
+		t.Fatalf("jobs: %v", m.Jobs)
+	}
+	if len(m.Queues) != 1 || m.Queues[0].Kind != "render" || m.Queues[0].Done != 1 ||
+		m.Queues[0].AvgWaitSeconds < 4.5 || m.Queues[0].AvgWaitSeconds > 5.5 ||
+		m.Queues[0].AvgProcessSeconds < 11.5 || m.Queues[0].AvgProcessSeconds > 12.5 {
+		t.Fatalf("fila: %+v", m.Queues)
+	}
+	if m.Render.Renders != 1 || m.Render.SecondsPerVideoSecond < 1.9 || m.Render.SecondsPerVideoSecond > 2.1 {
+		t.Fatalf("render: %+v", m.Render)
+	}
+	if len(m.Fails) != 1 || m.Fails[0].Template != "promo@1" || m.Fails[0].FailureRate != 0.5 {
+		t.Fatalf("falhas: %+v", m.Fails)
+	}
+	if len(m.LLM) != 1 || m.LLM[0].Calls != 1 || m.LLM[0].CostUSD != 0.01 || m.LLM[0].AvgSeconds != 2 {
+		t.Fatalf("llm: %+v", m.LLM)
+	}
+
+	keys, err := postgres.NewMediaReferences(db).ReferencedOutputKeys(ctx)
+	if _, ok := keys["done/r1.mp4"]; err != nil || !ok || len(keys) != 1 {
+		t.Fatalf("referências: %v %v", keys, err)
 	}
 }

@@ -74,6 +74,11 @@ export class ApiClient {
     return this.request("POST", `/videos/${encodeURIComponent(id)}/retry`);
   }
 
+  /** Resumo operacional (usado para o ETA do render). */
+  getMetrics(window = "168h"): Promise<{ render: { renders: number; renderSecondsPerVideoSecond: number } }> {
+    return this.request("GET", `/metrics?window=${encodeURIComponent(window)}`);
+  }
+
   eventsUrl(id: string): string {
     return `${this.baseUrl}/videos/${encodeURIComponent(id)}/events`;
   }

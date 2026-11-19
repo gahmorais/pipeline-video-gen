@@ -54,7 +54,8 @@ func (q *Queue) Claim(ctx context.Context, kind ports.TaskKind, workerID string)
 	)
 	err := q.db.QueryRowContext(ctx, `
 		UPDATE task_queue SET status = 'running', locked_at = now(), locked_by = $2,
-			attempts = attempts + 1, updated_at = now()
+			attempts = attempts + 1, updated_at = now(),
+			first_claimed_at = COALESCE(first_claimed_at, now()), last_claimed_at = now()
 		WHERE id = (
 			SELECT id FROM task_queue
 			WHERE kind = $1 AND status = 'pending' AND run_after <= now()
@@ -76,7 +77,7 @@ func (q *Queue) Claim(ctx context.Context, kind ports.TaskKind, workerID string)
 
 func (q *Queue) Complete(ctx context.Context, taskID int64) error {
 	return q.expectOne(q.db.ExecContext(ctx, `
-		UPDATE task_queue SET status = 'done', locked_at = NULL, updated_at = now()
+		UPDATE task_queue SET status = 'done', locked_at = NULL, finished_at = now(), updated_at = now()
 		WHERE id = $1 AND status = 'running'`, taskID))
 }
 

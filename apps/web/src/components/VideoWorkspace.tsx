@@ -1,8 +1,9 @@
 "use client";
 
-import type { PromoStoryboard, ValidationIssue } from "@videogen/video-schema";
+import { totalDurationSec, type PromoStoryboard, type ValidationIssue } from "@videogen/video-schema";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, newIdempotencyKey, type JobStatus, type VideoDto } from "@/lib/api";
+import { estimateRemainingSeconds, formatDuration } from "@/lib/eta";
 import { parseStoryboard, sameStoryboard, validate } from "@/lib/storyboard-editor";
 import { useVideoJob } from "@/lib/use-video-job";
 import { PreviewPlayer } from "./PreviewPlayer";
@@ -105,7 +106,13 @@ export function VideoWorkspace({ id }: { id: string }) {
             <PreviewPlayer storyboard={clientIssues.length === 0 ? draft : (saved ?? draft)} />
             {clientIssues.length > 0 && <p className="muted">Preview mostra a última versão válida.</p>}
 
-            <RenderPanel job={job} busy={busy} dirty={dirty} onRender={render} />
+            <RenderPanel
+              job={job}
+              busy={busy}
+              dirty={dirty}
+              onRender={render}
+              videoSeconds={saved ? totalDurationSec(saved.scenes) : 0}
+            />
           </section>
 
           <section className="stack">
@@ -132,14 +139,41 @@ export function VideoWorkspace({ id }: { id: string }) {
   );
 }
 
-function RenderPanel({ job, busy, dirty, onRender }: { job: VideoDto; busy: boolean; dirty: boolean; onRender: () => void }) {
-  const progress = Math.round((job.render?.progress ?? 0) * 100);
+interface RenderPanelProps {
+  job: VideoDto;
+  busy: boolean;
+  dirty: boolean;
+  onRender: () => void;
+  videoSeconds: number;
+}
 
-  if (job.status === "RENDER_QUEUED" || job.status === "RENDERING") {
+function RenderPanel({ job, busy, dirty, onRender, videoSeconds }: RenderPanelProps) {
+  const rendering = job.status === "RENDER_QUEUED" || job.status === "RENDERING";
+  const progress = Math.round((job.render?.progress ?? 0) * 100);
+  const [ratio, setRatio] = useState(0);
+
+  // Histórico real de render alimenta o ETA (busca uma vez por render).
+  useEffect(() => {
+    if (!rendering) return;
+    let cancelled = false;
+    api
+      .getMetrics()
+      .then((m) => !cancelled && setRatio(m.render.renderSecondsPerVideoSecond))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [rendering]);
+
+  if (rendering) {
+    const eta = job.status === "RENDERING" ? estimateRemainingSeconds(job.render?.progress ?? 0, videoSeconds, ratio) : null;
     return (
       <div className="card stack">
         <progress max={100} value={job.status === "RENDERING" ? progress : undefined} />
-        <span className="muted">{job.status === "RENDERING" ? `${progress}%` : "Aguardando o render worker…"}</span>
+        <span className="muted">
+          {job.status === "RENDERING" ? `${progress}%` : "Aguardando o render worker…"}
+          {eta !== null && ` · ~${formatDuration(eta)} restantes`}
+        </span>
       </div>
     );
   }

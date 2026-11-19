@@ -40,7 +40,8 @@ export class PostgresRenderQueue implements RenderTaskQueue {
       max_attempts: number;
     }>(
       `UPDATE task_queue SET status = 'running', locked_at = now(), locked_by = $1,
-              attempts = attempts + 1, updated_at = now()
+              attempts = attempts + 1, updated_at = now(),
+              first_claimed_at = COALESCE(first_claimed_at, now()), last_claimed_at = now()
        WHERE id = (
          SELECT id FROM task_queue
          WHERE kind = 'render' AND status = 'pending' AND run_after <= now()
@@ -65,7 +66,7 @@ export class PostgresRenderQueue implements RenderTaskQueue {
 
   async complete(taskId: number): Promise<void> {
     await this.expectOne(
-      `UPDATE task_queue SET status = 'done', locked_at = NULL, updated_at = now()
+      `UPDATE task_queue SET status = 'done', locked_at = NULL, finished_at = now(), updated_at = now()
        WHERE id = $1 AND status = 'running'`,
       [taskId],
     );

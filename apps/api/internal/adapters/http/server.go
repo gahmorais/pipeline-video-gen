@@ -40,14 +40,22 @@ type Config struct {
 	MaxBodyBytes int64
 	// SSEHeartbeat mantém conexões SSE vivas através de proxies.
 	SSEHeartbeat time.Duration
+	// CreateLimit limita POST /videos por IP (cada criação custa uma chamada ao LLM). nil = sem limite.
+	CreateLimit *RateLimit
+	// RenderLimit limita POST /videos/{id}/render por IP (render consome a máquina). nil = sem limite.
+	RenderLimit *RateLimit
+	// Metrics habilita GET /metrics. nil = rota desabilitada.
+	Metrics ports.MetricsReader
 }
 
 type Server struct {
-	svc    VideoService
-	broker *events.Broker
-	media  ports.MediaReader
-	cfg    Config
-	logger *slog.Logger
+	svc           VideoService
+	broker        *events.Broker
+	media         ports.MediaReader
+	cfg           Config
+	logger        *slog.Logger
+	createLimiter *rateLimiter
+	renderLimiter *rateLimiter
 }
 
 func NewServer(svc VideoService, broker *events.Broker, media ports.MediaReader, cfg Config, logger *slog.Logger) (*Server, error) {
@@ -60,7 +68,14 @@ func NewServer(svc VideoService, broker *events.Broker, media ports.MediaReader,
 	if cfg.SSEHeartbeat <= 0 {
 		cfg.SSEHeartbeat = 15 * time.Second
 	}
-	return &Server{svc: svc, broker: broker, media: media, cfg: cfg, logger: logger}, nil
+	s := &Server{svc: svc, broker: broker, media: media, cfg: cfg, logger: logger}
+	if cfg.CreateLimit != nil {
+		s.createLimiter = newRateLimiter(*cfg.CreateLimit, time.Now)
+	}
+	if cfg.RenderLimit != nil {
+		s.renderLimiter = newRateLimiter(*cfg.RenderLimit, time.Now)
+	}
+	return s, nil
 }
 
 // Handler monta as rotas (padrões de rota do net/http, Go >= 1.22).
@@ -72,13 +87,16 @@ func (s *Server) Handler() http.Handler {
 	})
 
 	// Públicos (frontend)
-	mux.HandleFunc("POST /videos", s.createVideo)
+	mux.HandleFunc("POST /videos", s.rateLimited(s.createLimiter, s.createVideo))
 	mux.HandleFunc("GET /videos/{id}", s.getVideo)
 	mux.HandleFunc("PATCH /videos/{id}/storyboard", s.updateStoryboard)
-	mux.HandleFunc("POST /videos/{id}/render", s.requestRender)
+	mux.HandleFunc("POST /videos/{id}/render", s.rateLimited(s.renderLimiter, s.requestRender))
 	mux.HandleFunc("POST /videos/{id}/retry", s.retry)
 	mux.HandleFunc("GET /videos/{id}/events", s.events)
 	mux.HandleFunc("GET /videos/{id}/media", s.serveMedia)
+	if s.cfg.Metrics != nil {
+		mux.HandleFunc("GET /metrics", s.metrics)
+	}
 
 	// Internos (workers): exigem token
 	internal := http.NewServeMux()
@@ -163,6 +181,25 @@ func (s *Server) serveMedia(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "private, max-age=3600")
 	// ServeContent trata Range, If-Modified-Since e HEAD (seek no player de vídeo).
 	http.ServeContent(w, r, string(job.ID())+".mp4", f.ModTime(), f)
+}
+
+// metrics devolve o resumo operacional da janela pedida (?window=24h, máx. 30 dias).
+func (s *Server) metrics(w http.ResponseWriter, r *http.Request) {
+	window := 24 * time.Hour
+	if raw := r.URL.Query().Get("window"); raw != "" {
+		d, err := time.ParseDuration(raw)
+		if err != nil || d <= 0 || d > 30*24*time.Hour {
+			writeError(w, r, s.logger, fmt.Errorf("%w: window deve ser uma duração entre 1s e 720h", errBadRequest))
+			return
+		}
+		window = d
+	}
+	summary, err := s.cfg.Metrics.Summary(r.Context(), time.Now().Add(-window))
+	if err != nil {
+		writeError(w, r, s.logger, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, summary)
 }
 
 // --- Internos (workers) ------------------------------------------------------------

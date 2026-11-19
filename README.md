@@ -50,6 +50,13 @@ curl -X POST -H "Idempotency-Key: $(uuidgen | tr A-Z a-z)" $API/videos/$ID/rende
 curl -o video.mp4 "$API/videos/$ID/media"                           # após COMPLETED
 ```
 
+## Operação
+
+- `GET /metrics?window=24h` — jobs por status, tempo em fila e de processamento por tipo de tarefa, segundos de render por segundo de vídeo (base do ETA na UI), taxa de falha por template e consumo/custo do LLM por modelo.
+- Logs estruturados com `job_id` na API (`slog`, JSON) e no render worker (`pino`).
+- Limpeza automática de `./media` (a cada hora): parciais com mais de 24 h e vídeos substituídos com mais de `MEDIA_ORPHAN_RETENTION`. O vídeo atual de cada job nunca é apagado.
+- Rate limit por IP em `POST /videos` e `POST /videos/{id}/render` (429 com `Retry-After`).
+
 ## Testes
 
 ```bash
