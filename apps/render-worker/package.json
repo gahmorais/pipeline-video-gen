@@ -1,0 +1,28 @@
+{
+  "name": "@videogen/render-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "render": "tsx src/main.ts render",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:integration": "RUN_RENDER_TESTS=1 vitest run test/integration"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.545",
+    "@remotion/renderer": "4.0.545",
+    "@videogen/compositions": "workspace:*",
+    "@videogen/video-schema": "workspace:*",
+    "pino": "^9.7.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.545",
+    "tsx": "^4.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}

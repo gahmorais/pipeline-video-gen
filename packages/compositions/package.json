@@ -7,7 +7,8 @@
   "types": "./src/public-api.ts",
   "exports": {
     ".": "./src/public-api.ts",
-    "./entry": "./src/index.ts"
+    "./entry": "./src/index.ts",
+    "./package.json": "./package.json"
   },
   "scripts": {
     "studio": "remotion studio src/index.ts",
