@@ -12,7 +12,7 @@ Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
 | 2 | `packages/compositions` | Composição Remotion `Promo` (cenas title/product/cta em `<Series>`), `calculateMetadata` a partir de `durationSec`, Root para o Studio | `tsc --noEmit`; Vitest de cálculo de frames; `renderStill` de um frame de cada cena | ✅ |
 | 3 | `apps/render-worker` (CLI) | Hexagonal: ports (`Renderer`, `MediaStorage`), use case `RenderVideo`, adapters `remotion-local` (bundle único) e `localfs`; CLI `render <fixture.json>` | Vitest do use case com fakes (validação, idempotência, progresso); render real de fixture curta gerando MP4 válido (ffprobe) | ✅ |
 | 4 | `apps/api` — domínio | Agregado `VideoJob`, `JobStatus`, máquina de estados, erros de domínio, eventos | `go test ./internal/domain/...` table-driven com todas as transições válidas/inválidas | ✅ |
-| 5 | `apps/api` — portas e use cases | `ports/` + `application/` (CreateVideo, GenerateStoryboard, UpdateStoryboard, RequestRender, ReportRenderProgress, CompleteRender, FailJob, RetryJob) | `go test` com fakes das portas | ⏳ |
+| 5 | `apps/api` — portas e use cases | `ports/` + `application/` (CreateVideo, GenerateStoryboard, UpdateStoryboard, RequestRender, ReportRenderProgress, CompleteRender, FailJob, RetryJob) | `go test` com fakes das portas | ✅ |
 | 6 | Validação de schema em Go | Adapter que valida storyboard contra `storyboard.schema.json` (embutido) | `go test` com as mesmas fixtures do pacote TS | ⏳ |
 | 7 | Postgres: repositório + fila | Migrations, `VideoJobRepository`, `JobQueue` (SKIP LOCKED, reclaim de jobs travados, LISTEN/NOTIFY) | Testes de integração contra Postgres real | ⏳ |
 | 8 | HTTP + SSE | Handlers REST, SSE de eventos por job, endpoints internos para workers, servir MP4 (`http.ServeContent`) | `httptest` + teste e2e da API com Postgres | ⏳ |
@@ -42,3 +42,7 @@ Legenda: ✅ concluída · 🔄 em andamento · ⏳ pendente
   - `Retry` volta à **etapa de fila** correspondente (falha de roteiro → `GENERATING_STORYBOARD`; falha de render → `RENDER_QUEUED`), limitado a `MaxRetries = 3`.
   - Estados "ativos" que podem falhar: `DRAFT`, `GENERATING_STORYBOARD`, `RENDER_QUEUED`, `RENDERING`.
 - **`Snapshot`/`Rehydrate`** para persistência sem setters públicos; `version` para controle de concorrência otimista no repositório.
+- **`UnitOfWork`** (porta) executa job + fila atomicamente; os use cases nunca veem transações SQL. Eventos de domínio são coletados dentro da transação e publicados **somente após o commit**.
+- **LLM chamado fora de transação**: `GenerateStoryboard` marca `GENERATING_STORYBOARD` numa transação curta, chama o LLM, e anexa o resultado em outra transação — ignorando o resultado se o job mudou nesse intervalo.
+- **Falha do LLM ou saída fora do schema vira `FAILED`** com motivo (não erro de infraestrutura); o usuário pode usar `Retry`.
+- **Idempotency key do `POST /render` vira o `renderId`**; comandos idempotentes não incrementam a versão do job.
